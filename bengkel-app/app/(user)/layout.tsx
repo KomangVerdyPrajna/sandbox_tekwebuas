@@ -4,7 +4,7 @@ import Navbar from "@/components/user/NavbarUsr";
 import Footer from "@/components/user/FooterUsr";
 import "../globals.css";
 
-export default function AdminLayout({ children }: { children: React.ReactNode }) {
+export default function UserLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex flex-col min-h-screen bg-gray-100">
 
