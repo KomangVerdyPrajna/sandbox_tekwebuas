@@ -15,7 +15,7 @@ export default function Home() {
 
         <div className="mt-6 flex gap-4">
 
-          {/* TOMBOL BOOKING #FF6D1F */}
+          {/* TOMBOL BOOKING */}
           <a
             href="/booking"
             className="text-white font-semibold px-5 py-2 rounded-lg shadow transition"
@@ -24,7 +24,7 @@ export default function Home() {
             Booking Sekarang
           </a>
 
-          {/* TOMBOL LIHAT PRODUK OUTLINE #FF6D1F */}
+          {/* TOMBOL LIHAT PRODUK */}
           <a
             href="/marketplace"
             className="font-semibold px-5 py-2 rounded-lg transition"
@@ -36,7 +36,6 @@ export default function Home() {
           >
             Lihat Produk
           </a>
-
         </div>
       </section>
 
@@ -44,9 +43,13 @@ export default function Home() {
       <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
 
         {/* CARD 1 */}
-        <div className="bg-white rounded-xl shadow hover:shadow-lg transition p-6 border-t-4"
-          style={{ borderColor: "#234C6A" }}>
-          <h2 className="text-xl font-semibold mb-2 text-[#234C6A]">Marketplace Produk</h2>
+        <div
+          className="bg-white rounded-xl shadow hover:shadow-lg transition p-6 border-t-4"
+          style={{ borderColor: "#234C6A" }}
+        >
+          <h2 className="text-xl font-semibold mb-2 text-[#234C6A]">
+            Marketplace Produk
+          </h2>
           <p className="text-gray-600 mb-4">
             Cari dan beli sparepart berkualitas dengan mudah.
           </p>
@@ -56,8 +59,10 @@ export default function Home() {
         </div>
 
         {/* CARD 2 */}
-        <div className="bg-white rounded-xl shadow hover:shadow-lg transition p-6 border-t-4"
-          style={{ borderColor: "#234C6A" }}>
+        <div
+          className="bg-white rounded-xl shadow hover:shadow-lg transition p-6 border-t-4"
+          style={{ borderColor: "#234C6A" }}
+        >
           <h2 className="text-xl font-semibold mb-2 text-[#234C6A]">Booking Bengkel</h2>
           <p className="text-gray-600 mb-4">
             Pilih jadwal servis tanpa harus mengantri lama.
@@ -68,8 +73,10 @@ export default function Home() {
         </div>
 
         {/* CARD 3 */}
-        <div className="bg-white rounded-xl shadow hover:shadow-lg transition p-6 border-t-4"
-          style={{ borderColor: "#234C6A" }}>
+        <div
+          className="bg-white rounded-xl shadow hover:shadow-lg transition p-6 border-t-4"
+          style={{ borderColor: "#234C6A" }}
+        >
           <h2 className="text-xl font-semibold mb-2 text-[#234C6A]">Riwayat Servis</h2>
           <p className="text-gray-600 mb-4">
             Lihat catatan servis kendaraan Anda kapan saja.
