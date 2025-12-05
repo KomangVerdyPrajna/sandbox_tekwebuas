@@ -321,7 +321,7 @@ export default function MarketplacePage() {
           />
 
           {/* Overlay gelap biar teks kebaca */}
-          <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/50 to-transparent" />
+          <div className="absolute inset-0 bg-linear-to-r from-black/70 via-black/50 to-transparent" />
 
           {/* Konten teks di atas foto */}
           <div className="absolute inset-0 flex items-center justify-between px-6 md:px-10">
@@ -366,7 +366,7 @@ export default function MarketplacePage() {
         {/* ==================== Search + Filter ==================== */}
         <div className="flex flex-col sm:flex-row items-center gap-4 w-full bg-white p-4 rounded-xl shadow-md border border-gray-100">
           <div className="flex items-center border border-gray-300 rounded-full px-4 py-2 w-full sm:w-2/3 shadow-inner">
-            <Search size={20} className="text-[#234C6A] mr-2 flex-shrink-0" />
+            <Search size={20} className="text-[#234C6A] mr-2 shrink-0" />
             <input
               type="text"
               placeholder="Cari nama produk: oli, kampas, helm, dll."
