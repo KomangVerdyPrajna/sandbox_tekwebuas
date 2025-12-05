@@ -10,13 +10,14 @@ return new class extends Migration
      * Run the migrations.
      */
     public function up(): void {
-    Schema::create('cart_items', function (Blueprint $table) {
+        Schema::create('cart_items', function (Blueprint $table) {
         $table->id();
-        $table->foreignId('user_id')->constrained()->cascadeOnDelete();
         $table->foreignId('product_id')->constrained()->cascadeOnDelete();
-        $table->integer('qty')->default(1);
-        $table->timestamps();
+        $table->integer('quantity');
+        $table->timestamps(); // penting banget!
     });
+
+
 }
 
 

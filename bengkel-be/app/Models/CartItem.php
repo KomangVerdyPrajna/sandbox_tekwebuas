@@ -4,12 +4,15 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-class CartItem extends Model {
-    protected $fillable = ['user_id','product_id','qty'];
+class CartItem extends Model
+{
+    protected $table = 'cart_items'; // opsional jika nama tabel benar
+    public $timestamps = true; // supaya created_at & updated_at otomatis
 
-    public function user() {
-        return $this->belongsTo(User::class);
-    }
+    protected $fillable = [
+        'product_id',
+        'quantity',
+    ];
 
     public function product() {
         return $this->belongsTo(Product::class);

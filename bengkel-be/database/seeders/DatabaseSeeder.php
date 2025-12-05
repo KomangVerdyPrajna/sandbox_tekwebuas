@@ -19,7 +19,12 @@ class DatabaseSeeder extends Seeder
             UserSeeder::class,
             CategorySeeder::class,
             ProductSeeder::class,
+            ServiceSeeder::class,   // ← TAMBAHKAN INI
             BookingSeeder::class,
+            CartItemSeeder::class,
+            OrderSeeder::class,
+            ShippingProgresSeeder::class,
+            ReviewSeeder::class,
         ]);
 
         User::factory()->create([
