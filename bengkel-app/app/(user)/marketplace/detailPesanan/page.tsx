@@ -45,7 +45,7 @@ const StatusTimeline = ({ currentStatus }: { currentStatus: Order['status'] }) =
                     return (
                         <div key={step.key} className="flex items-start mb-10 relative">
                             {/* Icon & Bullet */}
-                            <div className={`flex items-center justify-center w-12 h-12 md:w-16 md:h-16 rounded-full flex-shrink-0 z-10 transition duration-300
+                            <div className={`flex items-center justify-center w-12 h-12 md:w-16 md:h-16 rounded-full shrink-0 z-10 transition duration-300
                                 ${isCompleted 
                                     ? isCurrent ? 'bg-[#FF6D1F] ring-4 ring-[#FF6D1F]/30' : 'bg-[#234C6A] shadow-md shadow-[#234C6A]/50'
                                     : 'bg-gray-300'}`}
@@ -186,7 +186,7 @@ export default function DetailPesananPage() {
                     </div>
                 </div>
                 
-                <a href="/marketplace" className="mt-8 block text-center text-[#234C6A] font-bold hover:text-[#FF6D1F] transition">
+                <a href="/marketplace/pesanan" className="mt-8 block text-center text-[#234C6A] font-bold hover:text-[#FF6D1F] transition">
                     <ArrowLeft size={18} className="inline mr-1"/> Kembali ke Toko
                 </a>
             </div>

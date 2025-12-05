@@ -105,7 +105,7 @@ export default function CheckoutPage() {
         localStorage.removeItem("cart");
 
         // 3. Arahkan ke halaman detail pesanan
-        window.location.href = "/marketplace/detailPesanan";
+        window.location.href = `/marketplace/pesanan`;
     };
 
     // Kelas dasar untuk input
