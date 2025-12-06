@@ -1,5 +1,6 @@
 "use client";
 
+import type React from "react";
 import { useEffect, useState } from "react";
 import {
   ShoppingCart,
@@ -9,8 +10,6 @@ import {
   PlusCircle,
   AlertTriangle,
   Package,
-  // Optional: ikon kecil untuk label berita
-  // Newspaper,
 } from "lucide-react";
 
 // ===============================
@@ -22,40 +21,14 @@ interface Product {
   price: number;
   category: { name: string; slug: string };
   image_url: string;
-}
 
-// ===============================
-// DUMMY DATA PROMOSI / BERITA (PAKAI FOTO)
-// ===============================
-const PROMO_BANNERS = [
-  {
-    id: 1,
-    title: "Diskon 30% Oli Full Synthetic",
-    subtitle: "Hemat besar untuk servis berkala motor kamu.",
-    imageUrl:
-      "https://images.pexels.com/photos/4489732/pexels-photo-4489732.jpeg?auto=compress&cs=tinysrgb&w=1200",
-    link: "/marketplace/oli-promo",
-    tag: "Promo Spesial",
-  },
-  {
-    id: 2,
-    title: "Produk Baru: Knalpot Racing",
-    subtitle: "Suara gahar, performa naik, tetap aman buat harian.",
-    imageUrl:
-      "https://images.pexels.com/photos/974262/pexels-photo-974262.jpeg?auto=compress&cs=tinysrgb&w=1200",
-    link: "/marketplace/knalpot-baru",
-    tag: "Produk Baru",
-  },
-  {
-    id: 3,
-    title: "Layanan Jemput Motor ke Rumah",
-    subtitle: "Booking via aplikasi, teknisi datang jemput motor kamu.",
-    imageUrl:
-      "https://images.pexels.com/photos/4488650/pexels-photo-4488650.jpeg?auto=compress&cs=tinysrgb&w=1200",
-    link: "/booking",
-    tag: "Berita Bengkel",
-  },
-];
+  // Field terkait promo
+  isPromo?: boolean;
+  discountPercent?: number;
+  promoTag?: string;
+  promoSubtitle?: string;
+  promoImageUrl?: string;
+}
 
 // ===============================
 // Fungsi Add Cart (Simulasi localStorage)
@@ -97,6 +70,7 @@ interface ProductCardProps {
   getCategoryIcon: Function;
   updateCartCount: () => void;
   onProductClick: (product: Product) => void;
+  isHighlighted: boolean;
 }
 
 // ===============================
@@ -108,6 +82,7 @@ const ProductCardComponent = ({
   getCategoryIcon,
   updateCartCount,
   onProductClick,
+  isHighlighted,
 }: ProductCardProps) => {
   const handleAdd = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -125,10 +100,12 @@ const ProductCardComponent = ({
 
   return (
     <div
+      id={`product-${product.id}`} // target scroll promo
       key={product.id}
       onClick={handleCardClick}
-      className="group bg-white rounded-xl shadow-lg border border-gray-200 
-                hover:shadow-xl hover:border-[#FF6D1F] transition duration-300 overflow-hidden relative cursor-pointer"
+      className={`group bg-white rounded-xl shadow-lg border border-gray-200 
+                hover:shadow-xl hover:border-[#FF6D1F] transition duration-300 overflow-hidden relative cursor-pointer
+                ${isHighlighted ? "ring-4 ring-[#FF6D1F]" : ""}`}
     >
       <div className="block">
         <img
@@ -183,7 +160,11 @@ export default function MarketplacePage() {
   const [cartCount, setCartCount] = useState(0);
   const [currentPromoIndex, setCurrentPromoIndex] = useState(0);
   const [hasLatestOrder, setHasLatestOrder] = useState(false);
+  const [highlightedProductId, setHighlightedProductId] = useState<
+    number | null
+  >(null);
 
+  // ================== Dummy Produk (sekarang dengan info promo) ==================
   const dummyData: Product[] = [
     {
       id: 1,
@@ -192,6 +173,12 @@ export default function MarketplacePage() {
       category: { name: "Suku Cadang", slug: "suku-cadang" },
       image_url:
         "https://placehold.co/700x700/234C6A/FFFFFF/png?text=Oli+Mesin",
+      isPromo: true,
+      discountPercent: 30,
+      promoTag: "Promo Spesial",
+      promoSubtitle: "Hemat besar untuk servis berkala motor kamu.",
+      promoImageUrl:
+        "https://images.pexels.com/photos/4489732/pexels-photo-4489732.jpeg?auto=compress&cs=tinysrgb&w=1200",
     },
     {
       id: 2,
@@ -200,6 +187,11 @@ export default function MarketplacePage() {
       category: { name: "Suku Cadang", slug: "suku-cadang" },
       image_url:
         "https://placehold.co/700x700/FF6D1F/FFFFFF/png?text=Kampas+Rem",
+      isPromo: true,
+      discountPercent: 15,
+      promoTag: "Produk Baru",
+      promoSubtitle: "Kampas lebih pakem, aman di jalan.",
+      // promoImageUrl bisa kosong → pakai image_url
     },
     {
       id: 3,
@@ -208,6 +200,7 @@ export default function MarketplacePage() {
       category: { name: "Aksesoris", slug: "aksesoris" },
       image_url:
         "https://placehold.co/700x700/234C6A/FFFFFF/png?text=Sarung+Tangan",
+      // tidak promo
     },
     {
       id: 4,
@@ -216,6 +209,7 @@ export default function MarketplacePage() {
       category: { name: "Aksesoris", slug: "aksesoris" },
       image_url:
         "https://placehold.co/700x700/FF6D1F/FFFFFF/png?text=Helm+Bogo",
+      // tidak promo
     },
   ];
 
@@ -236,16 +230,34 @@ export default function MarketplacePage() {
     if (localStorage.getItem("latestOrder")) {
       setHasLatestOrder(true);
     }
+  }, []);
 
-    // Auto slide berita / promo tiap 5 detik
+  // ================== Bikin daftar promo otomatis dari products ==================
+  const promoBanners = products
+    .filter((p) => p.isPromo)
+    .map((p) => ({
+      productId: p.id,
+      title: p.discountPercent
+        ? `Diskon ${p.discountPercent}% ${p.name}`
+        : p.name,
+      subtitle:
+        p.promoSubtitle ?? "Dapatkan penawaran menarik untuk produk ini.",
+      tag: p.promoTag ?? "Promo",
+      imageUrl: p.promoImageUrl ?? p.image_url,
+    }));
+
+  // Auto slide promo tiap 5 detik (kalau ada promo)
+  useEffect(() => {
+    if (promoBanners.length === 0) return;
+
     const interval = setInterval(() => {
       setCurrentPromoIndex(
-        (prevIndex) => (prevIndex + 1) % PROMO_BANNERS.length
+        (prevIndex) => (prevIndex + 1) % promoBanners.length
       );
     }, 5000);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [promoBanners.length]);
 
   const filtered = products.filter(
     (p) =>
@@ -264,7 +276,24 @@ export default function MarketplacePage() {
     }
   };
 
-  const currentPromo = PROMO_BANNERS[currentPromoIndex];
+  const currentPromo =
+    promoBanners.length > 0 ? promoBanners[currentPromoIndex] : null;
+
+  // =============== SCROLL KE PRODUK YANG DIPROMO ===============
+  const handleSeeNow = () => {
+    if (!currentPromo) return;
+
+    const productId = currentPromo.productId;
+    const el = document.getElementById(`product-${productId}`);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+
+      setHighlightedProductId(productId);
+      setTimeout(() => {
+        setHighlightedProductId((prev) => (prev === productId ? null : prev));
+      }, 2000);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 py-10 px-4 md:px-0">
@@ -309,59 +338,65 @@ export default function MarketplacePage() {
         </div>
 
         {/* ==================== PROMO / BERITA SLIDER DENGAN FOTO ==================== */}
-        <a
-          href={currentPromo.link}
-          className="block rounded-2xl shadow-xl overflow-hidden relative group"
-        >
-          {/* Foto utama */}
-          <img
-            src={currentPromo.imageUrl}
-            alt={currentPromo.title}
-            className="w-full h-40 md:h-56 lg:h-64 object-cover transition-transform duration-500 group-hover:scale-[1.03]"
-          />
+        {currentPromo && (
+          <div className="rounded-2xl shadow-xl overflow-hidden relative group cursor-pointer">
+            {/* Foto utama */}
+            <img
+              src={currentPromo.imageUrl}
+              alt={currentPromo.title}
+              className="w-full h-40 md:h-56 lg:h-64 object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+            />
 
-          {/* Overlay gelap biar teks kebaca */}
-          <div className="absolute inset-0 bg-linear-to-r from-black/70 via-black/50 to-transparent" />
+            {/* Overlay gelap biar teks kebaca */}
+            <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/50 to-transparent" />
 
-          {/* Konten teks di atas foto */}
-          <div className="absolute inset-0 flex items-center justify-between px-6 md:px-10">
-            <div className="text-white max-w-xl">
-              {currentPromo.tag && (
-                <span className="inline-block text-xs font-semibold tracking-wide bg-white/20 px-3 py-1 rounded-full mb-2 backdrop-blur-sm">
-                  {currentPromo.tag}
-                </span>
-              )}
-              <h2 className="text-2xl md:text-3xl font-extrabold leading-snug">
-                {currentPromo.title}
-              </h2>
-              <p className="text-sm md:text-base mt-1 text-gray-100/80">
-                {currentPromo.subtitle}
-              </p>
+            {/* Konten teks di atas foto */}
+            <div className="absolute inset-0 flex items-center justify-between px-6 md:px-10">
+              <div className="text-white max-w-xl">
+                {currentPromo.tag && (
+                  <span className="inline-block text-xs font-semibold tracking-wide bg-white/20 px-3 py-1 rounded-full mb-2 backdrop-blur-sm">
+                    {currentPromo.tag}
+                  </span>
+                )}
+                <h2 className="text-2xl md:text-3xl font-extrabold leading-snug">
+                  {currentPromo.title}
+                </h2>
+                <p className="text-sm md:text-base mt-1 text-gray-100/80">
+                  {currentPromo.subtitle}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleSeeNow();
+                }}
+                className="hidden sm:inline-flex text-sm md:text-base font-semibold text-white border border-white/70 px-4 py-2 rounded-full hover:bg-white/10 transition"
+              >
+                Lihat Sekarang →
+              </button>
             </div>
 
-            <span className="hidden sm:inline-flex text-sm md:text-base font-semibold text-white border border-white/70 px-4 py-2 rounded-full hover:bg-white/10 transition">
-              Lihat Sekarang →
-            </span>
+            {/* Indikator Carousel */}
+            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
+              {promoBanners.map((_, index) => (
+                <button
+                  key={index}
+                  className={`w-2.5 h-2.5 rounded-full transition-all ${
+                    index === currentPromoIndex
+                      ? "bg-white"
+                      : "bg-white/50 hover:bg-white/80"
+                  }`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setCurrentPromoIndex(index);
+                  }}
+                />
+              ))}
+            </div>
           </div>
-
-          {/* Indikator Carousel */}
-          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
-            {PROMO_BANNERS.map((_, index) => (
-              <button
-                key={index}
-                className={`w-2.5 h-2.5 rounded-full transition-all ${
-                  index === currentPromoIndex
-                    ? "bg-white"
-                    : "bg-white/50 hover:bg-white/80"
-                }`}
-                onClick={(e) => {
-                  e.preventDefault();
-                  setCurrentPromoIndex(index);
-                }}
-              />
-            ))}
-          </div>
-        </a>
+        )}
 
         {/* ==================== Search + Filter ==================== */}
         <div className="flex flex-col sm:flex-row items-center gap-4 w-full bg-white p-4 rounded-xl shadow-md border border-gray-100">
@@ -404,6 +439,7 @@ export default function MarketplacePage() {
               getCategoryIcon={getCategoryIcon}
               updateCartCount={updateCartCount}
               onProductClick={handleProductClick}
+              isHighlighted={highlightedProductId === p.id}
             />
           ))}
         </div>
