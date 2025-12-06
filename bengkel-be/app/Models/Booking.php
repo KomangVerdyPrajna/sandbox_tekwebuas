@@ -13,7 +13,7 @@ class Booking extends Model
         'user_id',          // Foreign key ke User
         'jenis_kendaraan',
         'nama_kendaraan',
-        'services_id',
+        'jenis_service',
         'booking_date',
         'no_wa',            // <-- DIPERTAHANKAN
         'notes',

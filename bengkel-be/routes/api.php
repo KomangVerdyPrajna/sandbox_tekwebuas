@@ -1,47 +1,44 @@
 <?php
 
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\Api\Auth\RegisterController;
-use App\Http\Controllers\Api\Auth\LoginController;
-use App\Http\Controllers\Api\MarketplaceController;
-use App\Http\Controllers\Api\Admin\BookingController;
-use App\Http\Controllers\Api\Admin\ProductController;
-use App\Http\Controllers\Api\Admin\CategoryController;
-use App\Http\Middleware\AdminMiddleware;
+use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\AdminUserController;
+use App\Http\Controllers\Api\ProductController; 
+use App\Http\Controllers\Api\CategoryController;
+use App\Http\Controllers\Api\BookingController;
+use App\Http\Controllers\Api\CashierController;
+// Import semua controller API Anda yang lain
 
 /*
 |--------------------------------------------------------------------------
 | API Routes
 |--------------------------------------------------------------------------
+|
+| Semua route di file ini otomatis diawali dengan prefix '/api'.
+|
 */
 
-// AUTH
-Route::post('register', [RegisterController::class, 'register']);
-Route::post('login', [LoginController::class, 'login']);
+// --- 1. ROUTE PUBLIK (Tidak Perlu Token) ---
+Route::post('register', [AuthController::class, 'register']);
+Route::post('login', [AuthController::class, 'login']);
 
-// Semua route berikut butuh login
-Route::middleware('auth:sanctum')->group(function () {
 
-    // MARKETPLACE — user bisa lihat produk
-    Route::get('products', [MarketplaceController::class, 'index']);
-    Route::get('products/{id}', [MarketplaceController::class, 'show']);
-
-    // CART
-    Route::post('cart', [MarketplaceController::class, 'addToCart']);
-    Route::get('cart', [MarketplaceController::class, 'cart']);
-
-    // BOOKING — user
-    Route::post('bookings', [BookingController::class, 'store']); // buat booking
-    Route::get('user/bookings', [BookingController::class, 'userBookings']); // ambil booking user
-
-    // CATEGORY
-    Route::get('category', [CategoryController::class, 'index']);
-
-    // ADMIN — semua route admin pakai middleware AdminMiddleware
-    Route::middleware(AdminMiddleware::class)->prefix('admin')->group(function () {
-        Route::get('bookings', [BookingController::class, 'index']); // ambil semua booking
-        Route::apiResource('products', ProductController::class); // CRUD produk
-        Route::get('category', [CategoryController::class, 'index']); // lihat kategori
-    });
+// --- 2. ROUTE TERPROTEKSI (Membutuhkan Token Bearer: auth:sanctum) ---
+Route::group(['middleware' => ['auth:sanctum']], function () {
+    
+    // Auth & User Management
+    Route::get('user', [AuthController::class, 'user']);
+    Route::post('logout', [AuthController::class, 'logout']);
+    
+    // Admin Management (Perlu pengecekan role 'super_admin' di dalam controller)
+    Route::post('staff/register', [AdminUserController::class, 'storeStaff']);
+    Route::get('staff', [AdminUserController::class, 'index']);
+    
+    // Resourceful Routes
+    Route::apiResource('products', ProductController::class);
+    // Tambahkan resource lainnya di sini:
+    Route::apiResource('categories', CategoryController::class);
+    // Route::apiResource('orders', Api\OrderController::class);
+    Route::apiResource('cashier',  CashierController::class);
+    Route::apiResource('bookings', BookingController::class);
 });
