@@ -13,12 +13,33 @@ import {
 } from "lucide-react";
 
 // ===============================
+// HELPER DISKON – dipakai di card & detail
+// ===============================
+function getPriceInfo(product: {
+  price: number;
+  isPromo?: boolean;
+  discountPercent?: number;
+}) {
+  const hasDiscount =
+    product.isPromo && !!product.discountPercent && product.discountPercent > 0;
+
+  const originalPrice = product.price;
+  const finalPrice = hasDiscount
+    ? Math.round(
+        product.price * (1 - (product.discountPercent as number) / 100)
+      )
+    : product.price;
+
+  return { hasDiscount, originalPrice, finalPrice };
+}
+
+// ===============================
 // TIPE DATA PRODUK
 // ===============================
 interface Product {
   id: number;
   name: string;
-  price: number;
+  price: number; // harga normal (sebelum diskon)
   category: { name: string; slug: string };
   image_url: string;
 
@@ -70,7 +91,6 @@ interface ProductCardProps {
   getCategoryIcon: Function;
   updateCartCount: () => void;
   onProductClick: (product: Product) => void;
-  isHighlighted: boolean;
 }
 
 // ===============================
@@ -82,7 +102,6 @@ const ProductCardComponent = ({
   getCategoryIcon,
   updateCartCount,
   onProductClick,
-  isHighlighted,
 }: ProductCardProps) => {
   const handleAdd = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -98,26 +117,33 @@ const ProductCardComponent = ({
     onProductClick(product);
   };
 
+  const { hasDiscount, originalPrice, finalPrice } = getPriceInfo(product);
+
   return (
     <div
-      id={`product-${product.id}`} // target scroll promo
+      id={`product-${product.id}`}
       key={product.id}
       onClick={handleCardClick}
-      className={`group bg-white rounded-xl shadow-lg border border-gray-200 
-                hover:shadow-xl hover:border-[#FF6D1F] transition duration-300 overflow-hidden relative cursor-pointer
-                ${isHighlighted ? "ring-4 ring-[#FF6D1F]" : ""}`}
+      className="group bg-white rounded-xl shadow-lg border border-gray-200 
+                hover:shadow-xl hover:border-[#FF6D1F] transition duration-300 overflow-hidden relative cursor-pointer"
     >
-      <div className="block">
+      <div className="block relative">
         <img
           src={product.image_url}
           alt={product.name}
-          className="w-full h-44 object-cover transition duration-300 group-hover:scale-[1.03]"
+          className="w-full h-44 object-cover transition duration-300 group-hover:scale-[1.03] relative z-0"
           onError={(e) => {
             e.currentTarget.onerror = null;
             e.currentTarget.src =
               "https://placehold.co/176x176/cccccc/333333?text=Gambar+Produk";
           }}
         />
+
+        {hasDiscount && (
+          <span className="absolute top-2 left-2 z-10 bg-[#FF6D1F] text-white text-xs font-bold px-2 py-1 rounded shadow">
+            -{product.discountPercent}%
+          </span>
+        )}
       </div>
 
       <div className="p-4 flex flex-col justify-between h-36">
@@ -133,9 +159,17 @@ const ProductCardComponent = ({
         </div>
 
         <div className="flex justify-between items-end pt-2">
-          <p className="text-[#FF6D1F] font-extrabold text-xl">
-            Rp {product.price.toLocaleString("id-ID")}
-          </p>
+          <div className="flex flex-col">
+            {hasDiscount && (
+              <p className="text-xs text-gray-500 line-through">
+                Rp {originalPrice.toLocaleString("id-ID")}
+              </p>
+            )}
+
+            <p className="text-[#FF6D1F] font-extrabold text-xl">
+              Rp {finalPrice.toLocaleString("id-ID")}
+            </p>
+          </div>
 
           <button
             onClick={handleAdd}
@@ -160,16 +194,13 @@ export default function MarketplacePage() {
   const [cartCount, setCartCount] = useState(0);
   const [currentPromoIndex, setCurrentPromoIndex] = useState(0);
   const [hasLatestOrder, setHasLatestOrder] = useState(false);
-  const [highlightedProductId, setHighlightedProductId] = useState<
-    number | null
-  >(null);
 
-  // ================== Dummy Produk (sekarang dengan info promo) ==================
+  // ================== Dummy Produk (price = harga normal) ==================
   const dummyData: Product[] = [
     {
       id: 1,
       name: "Oli Mesin Yamalube Power Matic",
-      price: 35000,
+      price: 50000, // harga normal, 30% → 35.000
       category: { name: "Suku Cadang", slug: "suku-cadang" },
       image_url:
         "https://placehold.co/700x700/234C6A/FFFFFF/png?text=Oli+Mesin",
@@ -183,7 +214,7 @@ export default function MarketplacePage() {
     {
       id: 2,
       name: "Kampas Rem Cakram Depan Motor",
-      price: 26000,
+      price: 26000, // harga normal, 15% → 22.100
       category: { name: "Suku Cadang", slug: "suku-cadang" },
       image_url:
         "https://placehold.co/700x700/FF6D1F/FFFFFF/png?text=Kampas+Rem",
@@ -191,7 +222,6 @@ export default function MarketplacePage() {
       discountPercent: 15,
       promoTag: "Produk Baru",
       promoSubtitle: "Kampas lebih pakem, aman di jalan.",
-      // promoImageUrl bisa kosong → pakai image_url
     },
     {
       id: 3,
@@ -200,7 +230,6 @@ export default function MarketplacePage() {
       category: { name: "Aksesoris", slug: "aksesoris" },
       image_url:
         "https://placehold.co/700x700/234C6A/FFFFFF/png?text=Sarung+Tangan",
-      // tidak promo
     },
     {
       id: 4,
@@ -209,7 +238,6 @@ export default function MarketplacePage() {
       category: { name: "Aksesoris", slug: "aksesoris" },
       image_url:
         "https://placehold.co/700x700/FF6D1F/FFFFFF/png?text=Helm+Bogo",
-      // tidak promo
     },
   ];
 
@@ -279,20 +307,13 @@ export default function MarketplacePage() {
   const currentPromo =
     promoBanners.length > 0 ? promoBanners[currentPromoIndex] : null;
 
-  // =============== SCROLL KE PRODUK YANG DIPROMO ===============
   const handleSeeNow = () => {
     if (!currentPromo) return;
+    const promoProduct = products.find((p) => p.id === currentPromo.productId);
+    if (!promoProduct) return;
 
-    const productId = currentPromo.productId;
-    const el = document.getElementById(`product-${productId}`);
-    if (el) {
-      el.scrollIntoView({ behavior: "smooth", block: "center" });
-
-      setHighlightedProductId(productId);
-      setTimeout(() => {
-        setHighlightedProductId((prev) => (prev === productId ? null : prev));
-      }, 2000);
-    }
+    localStorage.setItem("selectedProduct", JSON.stringify(promoProduct));
+    window.location.href = "/marketplace/detailProduk";
   };
 
   return (
@@ -340,17 +361,14 @@ export default function MarketplacePage() {
         {/* ==================== PROMO / BERITA SLIDER DENGAN FOTO ==================== */}
         {currentPromo && (
           <div className="rounded-2xl shadow-xl overflow-hidden relative group cursor-pointer">
-            {/* Foto utama */}
             <img
               src={currentPromo.imageUrl}
               alt={currentPromo.title}
               className="w-full h-40 md:h-56 lg:h-64 object-cover transition-transform duration-500 group-hover:scale-[1.03]"
             />
 
-            {/* Overlay gelap biar teks kebaca */}
             <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/50 to-transparent" />
 
-            {/* Konten teks di atas foto */}
             <div className="absolute inset-0 flex items-center justify-between px-6 md:px-10">
               <div className="text-white max-w-xl">
                 {currentPromo.tag && (
@@ -378,7 +396,6 @@ export default function MarketplacePage() {
               </button>
             </div>
 
-            {/* Indikator Carousel */}
             <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
               {promoBanners.map((_, index) => (
                 <button
@@ -439,7 +456,6 @@ export default function MarketplacePage() {
               getCategoryIcon={getCategoryIcon}
               updateCartCount={updateCartCount}
               onProductClick={handleProductClick}
-              isHighlighted={highlightedProductId === p.id}
             />
           ))}
         </div>
