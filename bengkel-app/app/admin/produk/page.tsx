@@ -1,9 +1,11 @@
+// app/admin/produk/page.tsx
 "use client";
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
-interface Product {
+// Interface Product didefinisikan di sini atau di file types.ts
+export interface Product {
   id: number;
   name: string;
   price: number;
@@ -65,8 +67,8 @@ export default function AdminProductsPage() {
 
   // BUILD URL GAMBAR
   const getImage = (img: string | null) => {
-    if (!img) return "/no-image.png";                           // kalau null
-    return `http://localhost:8000/storage/products/${img}`;      // URL gambar benar
+    if (!img) return "/no-image.png";                           
+    return `http://localhost:8000/storage/products/${img}`;      
   };
 
   return (
@@ -100,20 +102,22 @@ export default function AdminProductsPage() {
             {products.map((p) => (
               <tr key={p.id} className="border-b hover:bg-gray-50">
                 <td className="p-3">
+                  {/* Gunakan getImage untuk menampilkan gambar */}
                   <img 
-                  src={`http://localhost:8000/${p.img_url}`} 
-                  alt={p.name}
-                  className="w-16 h-16 object-cover rounded"
-                />
+                    src={getImage(p.img_url)} 
+                    alt={p.name}
+                    className="w-16 h-16 object-cover rounded"
+                  />
                 </td>
 
                 <td className="p-3">{p.name}</td>
-                <td className="p-3">Rp {p.price.toLocaleString()}</td>
+                <td className="p-3">Rp {p.price.toLocaleString('id-ID')}</td>
                 <td className="p-3">{p.description}</td>
 
                 <td className="p-3 space-x-2">
                   <button
-                    onClick={() => router.push(`/admin/products/edit/${p.id}`)}
+                    // PERBAIKAN: Ubah 'products' menjadi 'produk'
+                    onClick={() => router.push(`/admin/produk/edit?id=${p.id}`)}
                     className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
                   >
                     Edit
