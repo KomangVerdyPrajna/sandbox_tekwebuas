@@ -1,16 +1,67 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Mail, Lock, LogIn } from "lucide-react";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleLogin = (e: React.FormEvent) => {
+  // Auto redirect jika sudah login
+  useEffect(() => {
+    const user = localStorage.getItem("user");
+    if (user) {
+      const data = JSON.parse(user);
+      redirectByRole(data.role);
+    }
+  }, []);
+
+  const redirectByRole = (role: string) => {
+    if (role === "customer") window.location.href = "/";
+    if (["admin", "super_admin", "kasir"].includes(role)) window.location.href = "/admin/dashboard";
+  };
+
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("LOGIN:", { email, password });
+    setLoading(true);
+    setError(null);
+
+    try {
+      const res = await fetch("http://localhost:8000/api/login", {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json",
+          "Accept": "application/json"
+        },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.message || "Email atau password salah");
+        setLoading(false);
+        return;
+      }
+
+      // 🌟 Simpan Session Login
+      localStorage.setItem("token", data.token);
+      localStorage.setItem("user", JSON.stringify(data.user));
+
+      // simpan cookie agar middleware bisa membaca
+      document.cookie = `token=${data.token}; path=/;`;
+      document.cookie = `user=${JSON.stringify(data.user)}; path=/;`;
+
+      redirectByRole(data.user.role);
+
+    } catch (err) {
+      setError("Gagal menghubungi server API");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -24,6 +75,8 @@ export default function LoginPage() {
           <h1 className="text-3xl font-bold text-gray-800 mt-3">Masuk Akun</h1>
           <p className="text-sm text-gray-600">Silahkan login untuk melanjutkan</p>
         </div>
+
+        {error && <p className="text-red-500 text-center mb-3 text-sm">{error}</p>}
 
         <form onSubmit={handleLogin} className="space-y-4">
           <div className="relative">
@@ -44,8 +97,12 @@ export default function LoginPage() {
             />
           </div>
 
-          <button className="w-full bg-[#FF6D1F] text-white py-3 rounded-xl hover:bg-orange-600 font-semibold">
-            <LogIn className="inline mr-2" /> Login
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-[#FF6D1F] text-white py-3 rounded-xl hover:bg-orange-600 font-semibold flex justify-center items-center"
+          >
+            {loading ? "Memproses..." : <> <LogIn className="mr-2" /> Login </>}
           </button>
         </form>
 

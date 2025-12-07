@@ -7,22 +7,26 @@ use Illuminate\Http\Request;
 
 class AdminMiddleware
 {
-    public function handle(Request $request, Closure $next)
+    /**
+     * Middleware ini mendukung multiple role
+     * contoh pemakaian ->middleware("admin:admin,super_admin,kasir")
+     */
+    public function handle(Request $request, Closure $next, ...$roles)
     {
-        // Pastikan user login
-        if (!auth()->check()) {
+        // Cek login
+        if (!$request->user()) {
             return response()->json([
                 'message' => 'Unauthenticated'
             ], 401);
         }
 
-        // Pastikan role = admin
-        if (auth()->user()->role !== 'admin') {
-            return response()->json([
-                'message' => 'Unauthorized (admin only)'
-            ], 403);
+        // Jika role cocok maka lolos
+        if (in_array($request->user()->role, $roles)) {
+            return $next($request);
         }
 
-        return $next($request);
+        return response()->json([
+            'message' => 'Unauthorized access'
+        ], 403);
     }
 }

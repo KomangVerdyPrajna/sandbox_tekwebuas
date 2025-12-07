@@ -8,7 +8,7 @@ interface Product {
   name: string;
   price: number;
   description: string;
-  image_url: string;
+  img_url: string | null;
 }
 
 export default function AdminProductsPage() {
@@ -17,14 +17,22 @@ export default function AdminProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Load products from API
+  // ================= FETCH PRODUK =================
   async function fetchProducts() {
     setLoading(true);
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/products`, {
-        credentials: "include",
+      const token = localStorage.getItem("token");
+
+      const res = await fetch(`http://localhost:8000/api/products`, {
+        method: "GET",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Accept": "application/json"
+        }
       });
-      setProducts(await res.json());
+
+      const data = await res.json();
+      setProducts(data.products ?? []);
     } catch (err) {
       alert("Gagal memuat produk");
     } finally {
@@ -32,32 +40,40 @@ export default function AdminProductsPage() {
     }
   }
 
-  // Delete product
+  // ================= DELETE PRODUK =================
   async function deleteProduct(id: number) {
     if (!confirm("Yakin ingin menghapus produk ini?")) return;
 
     try {
-      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/products/${id}`, {
+      const token = localStorage.getItem("token");
+
+      await fetch(`http://localhost:8000/api/products/${id}`, {
         method: "DELETE",
-        credentials: "include",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Accept": "application/json"
+        }
       });
 
       fetchProducts();
-    } catch (err) {
+    } catch {
       alert("Gagal menghapus produk");
     }
   }
 
-  useEffect(() => {
-    fetchProducts();
-  }, []);
+  useEffect(() => { fetchProducts(); }, []);
+
+  // BUILD URL GAMBAR
+  const getImage = (img: string | null) => {
+    if (!img) return "/no-image.png";                           // kalau null
+    return `http://localhost:8000/storage/products/${img}`;      // URL gambar benar
+  };
 
   return (
     <div className="bg-white p-6 rounded-xl shadow max-w-5xl mx-auto">
       <div className="flex justify-between mb-5">
         <h1 className="text-2xl font-semibold">Manajemen Produk</h1>
 
-        {/* 🔥 Navigate to create page */}
         <button
           onClick={() => router.push("/admin/produk/create")}
           className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
@@ -84,21 +100,18 @@ export default function AdminProductsPage() {
             {products.map((p) => (
               <tr key={p.id} className="border-b hover:bg-gray-50">
                 <td className="p-3">
-                  <img
-                    src={p.image_url}
-                    alt={p.name}
-                    className="w-16 h-16 object-cover rounded"
-                  />
+                  <img 
+                  src={`http://localhost:8000/${p.img_url}`} 
+                  alt={p.name}
+                  className="w-16 h-16 object-cover rounded"
+                />
                 </td>
 
                 <td className="p-3">{p.name}</td>
-
                 <td className="p-3">Rp {p.price.toLocaleString()}</td>
-
                 <td className="p-3">{p.description}</td>
 
                 <td className="p-3 space-x-2">
-                  {/* 🔥 Edit → go to edit page */}
                   <button
                     onClick={() => router.push(`/admin/products/edit/${p.id}`)}
                     className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"

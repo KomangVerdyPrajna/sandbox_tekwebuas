@@ -7,38 +7,45 @@ use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\BookingController;
 use App\Http\Controllers\Api\CashierController;
-// Import semua controller API Anda yang lain
 
-/*
-|--------------------------------------------------------------------------
-| API Routes
-|--------------------------------------------------------------------------
-|
-| Semua route di file ini otomatis diawali dengan prefix '/api'.
-|
-*/
 
-// --- 1. ROUTE PUBLIK (Tidak Perlu Token) ---
+// ====================
+// ROUTE PUBLIC (NO TOKEN)
+// ====================
 Route::post('register', [AuthController::class, 'register']);
 Route::post('login', [AuthController::class, 'login']);
 
 
-// --- 2. ROUTE TERPROTEKSI (Membutuhkan Token Bearer: auth:sanctum) ---
+// ====================
+// ROUTE DENGAN TOKEN (ROLE CHECK)
+// ====================
 Route::group(['middleware' => ['auth:sanctum']], function () {
-    
-    // Auth & User Management
+
+    // 🔹 USER PROFILE & LOGOUT
     Route::get('user', [AuthController::class, 'user']);
     Route::post('logout', [AuthController::class, 'logout']);
-    
-    // Admin Management (Perlu pengecekan role 'super_admin' di dalam controller)
-    Route::post('staff/register', [AdminUserController::class, 'storeStaff']);
-    Route::get('staff', [AdminUserController::class, 'index']);
-    
-    // Resourceful Routes
-    Route::apiResource('products', ProductController::class);
-    // Tambahkan resource lainnya di sini:
-    Route::apiResource('categories', CategoryController::class);
-    // Route::apiResource('orders', Api\OrderController::class);
-    Route::apiResource('cashier',  CashierController::class);
-    Route::apiResource('bookings', BookingController::class);
+
+
+    // 🔥 SUPER ADMIN ONLY
+    Route::middleware(['admin:super_admin'])->group(function () {
+        Route::post('staff/register', [AdminUserController::class, 'storeStaff']);
+        Route::get('staff', [AdminUserController::class, 'index']);
+    });
+
+
+    // 🔥 ADMIN & SUPER ADMIN — Manage Products & Category
+    Route::middleware(['admin:admin,super_admin'])->group(function () {
+        Route::apiResource('products', ProductController::class);
+
+        // 🔥 Tambahkan route category CRUD disini
+        Route::apiResource('categories', CategoryController::class);
+    });
+
+
+    // 🔥 ADMIN/KASIR/SUPER ADMIN — Kasir & Booking
+    Route::middleware(['admin:kasir,admin,super_admin'])->group(function () {
+        Route::apiResource('cashier', CashierController::class);
+        Route::apiResource('bookings', BookingController::class);
+    });
+
 });

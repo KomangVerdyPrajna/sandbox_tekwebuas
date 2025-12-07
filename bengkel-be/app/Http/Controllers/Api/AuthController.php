@@ -22,12 +22,12 @@ class AuthController extends Controller
             'password' => ['required', 'string', 'min:8', 'confirmed'],
         ]);
 
-        // 2. Buat User Baru dengan Role Default 'customer'
+        // 2. Buat User Baru dengan Role Default 'customer' (PASSWORD DIBUAT HASH)
         $user = User::create([
             'name' => $request->name,
             'email' => $request->email,
-            'password' => $request->password, 
-            'role' => 'customer', 
+            'password' => Hash::make($request->password), // <-- WAJIB ditambah
+            'role' => 'customer',
         ]);
 
         // 3. Generate Token
@@ -78,7 +78,6 @@ class AuthController extends Controller
      */
     public function user(Request $request)
     {
-        // $request->user() berisi data user karena sudah melalui middleware auth:sanctum
         return response()->json([
             'user' => $request->user()->only(['id', 'name', 'email', 'role']),
         ]);

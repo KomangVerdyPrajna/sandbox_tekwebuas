@@ -1,74 +1,106 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+
+interface Category {
+  id: number;
+  name: string;
+}
 
 export default function CreateProductPage() {
   const router = useRouter();
 
   const [loading, setLoading] = useState(false);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [imageFile, setImageFile] = useState<File | null>(null);
 
   const [formData, setFormData] = useState({
     name: "",
     description: "",
     price: "",
+    stock: "",
+    category_id: "",
   });
 
-  const [imageFile, setImageFile] = useState<File | null>(null);
+  // ================= FETCH CATEGORY =====================
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const token = localStorage.getItem("token");
 
+        const res = await fetch("http://localhost:8000/api/categories", {
+          headers: { 
+            Authorization: `Bearer ${token}`,
+            Accept: "application/json"
+          }
+        });
+
+        const data = await res.json();
+        console.log("Kategori:", data);
+
+        setCategories(data.categories || []);
+
+      } catch {
+        alert("Gagal memuat kategori! Pastikan server Laravel berjalan!");
+      }
+    };
+
+    fetchCategories();
+  }, []);
+
+  // Handle input
   const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
-    });
+    setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setImageFile(e.target.files[0]);
-    }
+    if (e.target.files && e.target.files[0]) setImageFile(e.target.files[0]);
   };
 
+  // ================= SAVE PRODUCT =====================
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
-    // VALIDASI
-    if (!imageFile) {
-      alert("Gambar wajib di-upload!");
-      setLoading(false);
-      return;
-    }
+    if (!imageFile) return alert("Gambar wajib di-upload!");
 
-    // FormData untuk upload file
+    const token = localStorage.getItem("token");
+
     const payload = new FormData();
     payload.append("name", formData.name);
     payload.append("description", formData.description);
     payload.append("price", formData.price);
-    payload.append("image", imageFile); // FILE IMAGE
+    payload.append("stock", formData.stock);
+    payload.append("category_id", formData.category_id);
+    payload.append("img_url", imageFile); // ← FILE IMAGE dikirim ke backend
 
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/products`, {
+      const res = await fetch("http://localhost:8000/api/products", {
         method: "POST",
-        credentials: "include",
-        body: payload, // tanpa headers JSON
+        headers: { Authorization: `Bearer ${token}` },
+        body: payload 
       });
 
+      const data = await res.json();
+      console.log(data);
+
       if (!res.ok) {
-        alert("Gagal membuat produk!");
+        alert("Gagal membuat produk. Periksa kembali input!");
         return;
       }
 
       alert("Produk berhasil dibuat!");
-      router.push("/admin/products");
-    } catch (error) {
-      alert("Terjadi kesalahan server");
+      router.push("/admin/produk");
+    } catch {
+      alert("Terjadi kesalahan server!");
     } finally {
       setLoading(false);
     }
   };
+
 
   return (
     <div className="min-h-screen p-6 bg-gray-100">
@@ -76,8 +108,7 @@ export default function CreateProductPage() {
         <h1 className="text-2xl font-bold mb-4">Tambah Produk Baru</h1>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-
-          {/* Nama Produk */}
+          
           <div>
             <label className="block text-sm font-medium mb-1">Nama Produk</label>
             <input
@@ -91,7 +122,6 @@ export default function CreateProductPage() {
             />
           </div>
 
-          {/* Deskripsi */}
           <div>
             <label className="block text-sm font-medium mb-1">Deskripsi</label>
             <textarea
@@ -104,7 +134,6 @@ export default function CreateProductPage() {
             ></textarea>
           </div>
 
-          {/* Harga */}
           <div>
             <label className="block text-sm font-medium mb-1">Harga</label>
             <input
@@ -118,7 +147,35 @@ export default function CreateProductPage() {
             />
           </div>
 
-          {/* Upload Gambar */}
+          <div>
+            <label className="block text-sm font-medium mb-1">Stock</label>
+            <input
+              type="number"
+              name="stock"
+              required
+              value={formData.stock}
+              onChange={handleChange}
+              className="w-full border rounded px-3 py-2"
+              placeholder="10"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-1">Kategori Produk</label>
+            <select
+              name="category_id"
+              required
+              value={formData.category_id}
+              onChange={handleChange}
+              className="w-full border rounded px-3 py-2"
+            >
+              <option value="">-- Pilih Kategori --</option>
+              {categories.map((c) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+          </div>
+
           <div>
             <label className="block text-sm font-medium mb-1">Upload Gambar</label>
             <input
@@ -128,17 +185,9 @@ export default function CreateProductPage() {
               className="w-full border rounded px-3 py-2"
               required
             />
-
-            {/* Preview */}
-            {imageFile && (
-              <img
-                src={URL.createObjectURL(imageFile)}
-                className="w-32 h-32 object-cover mt-3 rounded"
-              />
-            )}
+            {imageFile && <img src={URL.createObjectURL(imageFile)} className="w-32 h-32 object-cover mt-3 rounded" />}
           </div>
 
-          {/* Submit */}
           <button
             type="submit"
             disabled={loading}
@@ -147,6 +196,7 @@ export default function CreateProductPage() {
             {loading ? "Menyimpan..." : "Simpan Produk"}
           </button>
         </form>
+
       </div>
     </div>
   );

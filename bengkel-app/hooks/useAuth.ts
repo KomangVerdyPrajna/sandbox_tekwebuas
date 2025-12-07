@@ -1,12 +1,15 @@
 import { useEffect, useState } from "react";
-import { apiFetch } from "@/api/route";
+import { apiFetch } from "@/api/api";
 
 export function useAuth() {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    apiFetch("/me").then(setUser).catch(() => setUser(null)).finally(() => setLoading(false));
+    apiFetch("/me")
+      .then(setUser)
+      .catch(() => setUser(null))
+      .finally(() => setLoading(false));
   }, []);
 
   async function login(email: string, password: string) {
