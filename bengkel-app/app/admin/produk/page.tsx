@@ -4,13 +4,12 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
-// Interface Product didefinisikan di sini atau di file types.ts
 export interface Product {
   id: number;
   name: string;
   price: number;
   description: string;
-  img_url: string | null;
+  img_url: string; // Sekarang menerima URL lengkap dari Laravel Accessor
 }
 
 export default function AdminProductsPage() {
@@ -33,9 +32,14 @@ export default function AdminProductsPage() {
         }
       });
 
+      if (!res.ok) throw new Error('Failed to fetch');
+
+      // Respons Laravel: { message: '...', products: [...] }
       const data = await res.json();
       setProducts(data.products ?? []);
     } catch (err) {
+      // Lebih baik log error sebenarnya
+      console.error(err); 
       alert("Gagal memuat produk");
     } finally {
       setLoading(false);
@@ -49,27 +53,27 @@ export default function AdminProductsPage() {
     try {
       const token = localStorage.getItem("token");
 
-      await fetch(`http://localhost:8000/api/products/${id}`, {
+      const res = await fetch(`http://localhost:8000/api/products/${id}`, {
         method: "DELETE",
         headers: {
           "Authorization": `Bearer ${token}`,
           "Accept": "application/json"
         }
       });
+      
+      if (!res.ok) throw new Error('Failed to delete');
 
-      fetchProducts();
-    } catch {
+      fetchProducts(); // Muat ulang daftar setelah berhasil hapus
+    } catch (err) {
+      console.error(err);
       alert("Gagal menghapus produk");
     }
   }
 
   useEffect(() => { fetchProducts(); }, []);
 
-  // BUILD URL GAMBAR
-  const getImage = (img: string | null) => {
-    if (!img) return "/no-image.png";                           
-    return `http://localhost:8000/storage/products/${img}`;      
-  };
+  // Hapus fungsi getImage karena Laravel sudah mengembalikan URL lengkap.
+  // Jika Anda ingin menggunakan fallback, gunakan || sebagai pengganti if(!img)
 
   return (
     <div className="bg-white p-6 rounded-xl shadow max-w-5xl mx-auto">
@@ -102,9 +106,9 @@ export default function AdminProductsPage() {
             {products.map((p) => (
               <tr key={p.id} className="border-b hover:bg-gray-50">
                 <td className="p-3">
-                  {/* Gunakan getImage untuk menampilkan gambar */}
                   <img 
-                    src={getImage(p.img_url)} 
+                    // ✅ Langsung gunakan p.img_url dari API
+                    src={p.img_url} 
                     alt={p.name}
                     className="w-16 h-16 object-cover rounded"
                   />
@@ -116,7 +120,6 @@ export default function AdminProductsPage() {
 
                 <td className="p-3 space-x-2">
                   <button
-                    // PERBAIKAN: Ubah 'products' menjadi 'produk'
                     onClick={() => router.push(`/admin/produk/edit?id=${p.id}`)}
                     className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
                   >
