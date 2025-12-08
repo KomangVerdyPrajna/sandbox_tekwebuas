@@ -1,10 +1,39 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 
-// ENUM Produk sesuai migration
+// ENUM Produk
 const productTypes = ["Sparepart", "Aksesoris"];
+
+// --- Input Components (Dipertahankan) ---
+interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
+    label: string;
+}
+function Input({ label, ...props }: InputProps) {
+    return (
+        <div>
+            <label className="block text-sm font-medium mb-1 text-gray-700">{label}</label>
+            <input {...props} className="border rounded px-3 py-2 w-full focus:ring-blue-500 focus:border-blue-500" />
+        </div>
+    );
+}
+
+interface TextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
+    label: string;
+}
+function Textarea({ label, ...props }: TextareaProps) {
+    return (
+        <div>
+            <label className="block text-sm font-medium mb-1 text-gray-700">{label}</label>
+            <textarea {...props} className="border rounded px-3 py-2 w-full h-24 focus:ring-blue-500 focus:border-blue-500" />
+        </div>
+    );
+}
+
+// =========================================================================
+// MAIN COMPONENT
+// =========================================================================
 
 export default function CreateProductPage() {
     const router = useRouter();
@@ -20,73 +49,86 @@ export default function CreateProductPage() {
         jenis_barang: "",
     });
 
-    const handleChange = (
-        e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
-    ) => {
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
     };
 
     const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files?.[0]) setImageFile(e.target.files[0]);
+        if (e.target.files?.[0]) {
+            setImageFile(e.target.files[0]);
+        }
     };
+
+    const imageUrl = useMemo(() => {
+        if (imageFile) return URL.createObjectURL(imageFile);
+        return null;
+    }, [imageFile]);
+
 
     // =================== SUBMIT ===================
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
 
-        if (!imageFile) {
-            alert("Gambar wajib diupload!");
-            setLoading(false);
-            return;
-        }
+        if (!imageFile) return alert("Gambar wajib diupload!");
+
+        const token = localStorage.getItem("token"); // sesuai login kamu
 
         const payload = new FormData();
-        Object.entries(formData).forEach(([key, value]) => payload.append(key, value));
-        payload.append("img_url", imageFile);
+        payload.append("name", formData.name);
+        payload.append("description", formData.description);
+        payload.append("price", formData.price.toString()); 
+        payload.append("stock", formData.stock.toString());
+        payload.append("jenis_barang", formData.jenis_barang);
+
+        // Pastikan nama key 'img_url' sinkron dengan Controller Laravel Anda
+        payload.append("img_url", imageFile); 
 
         try {
             const res = await fetch("http://localhost:8000/api/admin/products", {
                 method: "POST",
-                body: payload,
+                headers: { Authorization: `Bearer ${token}` },
+                body: payload
             });
 
             const data = await res.json();
 
             if (!res.ok) {
-                if (res.status === 422 && data.errors) {
-                    alert("Validasi gagal:\n" + Object.values(data.errors).flat().join("\n"));
+                // Jika 401/403: Hapus token dan redirect ke login
+                if (res.status === 401 || res.status === 403) {
+                    alert("Akses ditolak atau sesi berakhir. Silakan login ulang.");
+                    localStorage.removeItem("token");
+                    localStorage.removeItem("user");
+                    router.push('/login');
+                } else if (res.status === 422 && data.errors) {
+                    const validationErrors = Object.values(data.errors).flat().join("\n");
+                    alert("Validasi gagal:\n" + validationErrors);
                 } else {
-                    alert("Gagal membuat produk. HTTP " + res.status);
+                    alert("Gagal membuat produk. HTTP " + res.status + ": " + (data.message || "Unknown error"));
                 }
                 return;
             }
 
+            // Jika sukses
             alert("Produk berhasil ditambahkan!");
             router.push("/admin/produk");
         } catch (err) {
             alert("Tidak dapat terhubung ke server!");
-            console.error(err);
         } finally {
             setLoading(false);
+            if (imageUrl) URL.revokeObjectURL(imageUrl); 
         }
     };
 
     return (
         <div className="min-h-screen p-6 bg-gray-100">
-            <div className="max-w-xl mx-auto bg-white shadow p-6 rounded-xl">
-                <h1 className="text-2xl font-semibold mb-4">Tambah Produk</h1>
+            <div className="max-w-xl mx-auto bg-white shadow p-8 rounded-xl">
+                <h1 className="text-3xl font-bold text-gray-800 mb-6 border-b pb-3">Tambah Produk Baru</h1>
 
                 <form onSubmit={handleSubmit} className="space-y-4">
-
-                    <Input
-                        label="Nama Produk"
-                        name="name"
-                        type="text"
-                        value={formData.name}
-                        onChange={handleChange}
-                        required
-                    />
+                    
+                    <Input label="Nama Produk" name="name" type="text"
+                        value={formData.name} onChange={handleChange} required />
 
                     <Textarea
                         label="Deskripsi"
@@ -96,36 +138,24 @@ export default function CreateProductPage() {
                         required
                     />
 
-                    <Input
-                        label="Harga"
-                        name="price"
-                        type="number"
-                        value={formData.price}
-                        onChange={handleChange}
-                        required
-                    />
+                    <Input label="Harga" name="price" type="number"
+                        value={formData.price} onChange={handleChange} required />
 
-                    <Input
-                        label="Stok"
-                        name="stock"
-                        type="number"
-                        value={formData.stock}
-                        onChange={handleChange}
-                        required
-                    />
+                    <Input label="Stok" name="stock" type="number"
+                        value={formData.stock} onChange={handleChange} required />
 
                     {/* ENUM */}
                     <div>
-                        <label className="block text-sm font-medium mb-1">Jenis Barang</label>
+                        <label className="block text-sm font-medium mb-1 text-gray-700">Jenis Barang</label>
                         <select
                             name="jenis_barang"
                             value={formData.jenis_barang}
                             onChange={handleChange}
                             required
-                            className="border rounded px-3 py-2 w-full"
+                            className="border rounded px-3 py-2 w-full focus:ring-blue-500 focus:border-blue-500 transition duration-150"
                         >
                             <option value="">-- Pilih --</option>
-                            {productTypes.map((type) => (
+                            {productTypes.map(type => (
                                 <option key={type} value={type}>{type}</option>
                             ))}
                         </select>
@@ -134,28 +164,25 @@ export default function CreateProductPage() {
                     {/* Upload Gambar */}
                     <div>
                         <label className="block text-sm font-medium mb-1">Upload Gambar</label>
-                        <input
-                            type="file"
-                            accept="image/*"
+                        <input type="file" accept="image/*"
                             onChange={handleImageChange}
                             required
-                            className="border rounded px-3 py-2 w-full"
-                        />
+                            className="border rounded px-3 py-2 w-full" />
 
-                        {imageFile && (
-                            <img
-                                src={URL.createObjectURL(imageFile)}
-                                alt="Preview"
-                                className="w-28 h-28 rounded mt-3 object-cover border"
-                            />
+                        {imageUrl && (
+                            <div className="mt-4">
+                                <p className="text-xs text-gray-500 mb-1">Preview:</p>
+                                <img
+                                    src={imageUrl}
+                                    alt="Preview"
+                                    className="w-32 h-32 rounded-lg object-cover border-2 border-gray-200"
+                                />
+                            </div>
                         )}
                     </div>
 
-                    <button
-                        type="submit"
-                        disabled={loading}
-                        className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 disabled:bg-gray-400"
-                    >
+                    <button type="submit" disabled={loading}
+                        className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 disabled:bg-gray-400">
                         {loading ? "Menyimpan..." : "Simpan Produk"}
                     </button>
                 </form>
@@ -164,7 +191,7 @@ export default function CreateProductPage() {
     );
 }
 
-// ======== COMPONENT INPUT / TEXTAREA =========
+// ======== COMPONENT INPUT/ TEXTAREA (Agar rapi) =========
 
 function Input(props: any) {
     return (

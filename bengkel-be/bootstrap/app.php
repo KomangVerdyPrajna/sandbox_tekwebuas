@@ -4,9 +4,8 @@ use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 
-// Tambahkan ini
 use Illuminate\Http\Middleware\HandleCors;
-use App\Http\Middleware\AdminMiddleware;
+use App\Http\Middleware\RoleMiddleware; // <-- tambahkan ini
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -17,12 +16,12 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
 
-        // --- CORS agar fetch Next.js bisa masuk ---
+        // CORS untuk akses dari Next.js
         $middleware->append(HandleCors::class);
 
-        // --- Registrasi Middleware role Admin (wajib untuk role akses) ---
+        // Registrasi middleware "role"
         $middleware->alias([
-            'admin' => AdminMiddleware::class, // biar bisa pakai ->middleware('admin:admin,super_admin')
+            'role' => RoleMiddleware::class, // <-- FIX PENTING
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
