@@ -16,8 +16,8 @@ use App\Http\Controllers\Api\ReviewController;
 // PUBLIC ROUTES
 // ====================
 
-Route::post('auth/register', [AuthController::class, 'register']);
-Route::post('auth/login', [AuthController::class, 'login']);
+Route::post('register', [AuthController::class, 'register']);
+Route::post('login', [AuthController::class, 'login']);
 
 // Produk bebas
 Route::apiResource('products', ProductController::class);

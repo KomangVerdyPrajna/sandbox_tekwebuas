@@ -3,8 +3,9 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use App\Models\User;
+use App\Models\User; // <-- Pastikan ini di-import
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Auth; // <-- Perlu untuk login jika pakai Auth::attempt
 
 class AuthController extends Controller
 {
@@ -12,21 +13,25 @@ class AuthController extends Controller
     public function register(Request $request)
     {
         $request->validate([
-            'name' => 'required',
+            'name' => 'required|string',
             'email' => 'required|email|unique:users,email',
             'password' => 'required|min:6'
         ]);
 
-        $user = User::create([
+        $user = User::create([ // <-- Menggunakan $user
             'name' => $request->name,
             'email' => $request->email,
             'password' => Hash::make($request->password),
             'role' => 'customer' // default role
         ]);
 
+        // Token bisa dibuat saat register jika Anda ingin user langsung login
+        $token = $user->createToken('auth_token')->plainTextToken;
+
         return response()->json([
-            'message' => 'Register berhasil',
-            'customer' => $customer
+            'message' => 'Registrasi berhasil',
+            'user' => $user, // <-- Mengembalikan $user
+            'token' => $token // Opsional: Langsung kirim token
         ], 201);
     }
 
@@ -34,29 +39,33 @@ class AuthController extends Controller
     public function login(Request $request)
     {
         $request->validate([
-            'email' => 'required',
+            'email' => 'required|email', // Tambahkan validasi email
             'password' => 'required'
         ]);
 
-        $customer = Customer::where('email', $request->email)->first();
+        // 1. Cari user di tabel 'users'
+        $user = User::where('email', $request->email)->first(); // <-- Menggunakan User
 
-        if (!$customer || !Hash::check($request->password, $customer->password)) {
+        // 2. Verifikasi user dan password
+        if (!$user || !Hash::check($request->password, $user->password)) {
             return response()->json(['message' => 'Email atau password salah'], 401);
         }
 
-        // token sanctum
-        $token = $customer->createToken('auth_token')->plainTextToken;
+        // 3. Buat token Sanctum
+        // Pastikan model User menggunakan trait HasApiTokens
+        $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([
             'message' => 'Login berhasil',
             'token' => $token,
-            'customer' => $customer
+            'user' => $user // <-- Mengembalikan $user
         ]);
     }
 
     // PROFILE USER LOGIN
     public function profile(Request $request)
     {
-        return response()->json($request->customer());
+        // Akses user yang sedang login melalui Sanctum
+        return response()->json($request->user()); // <-- Menggunakan $request->user()
     }
 }

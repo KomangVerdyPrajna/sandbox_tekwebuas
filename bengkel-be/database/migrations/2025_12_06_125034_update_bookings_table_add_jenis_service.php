@@ -6,26 +6,26 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
+    // ...
     public function up(): void
     {
         Schema::table('bookings', function (Blueprint $table) {
-            // Hapus kolom services_id (jika sudah ada FK constraint, hapus dulu)
-            $table->dropForeign(['services_id']); // Hapus Foreign Key Constraint (jika ada)
-            $table->dropColumn('services_id');    // Hapus kolom lama
             
-            // Tambahkan kolom jenis_service yang baru
-            $table->string('jenis_service')->after('nama_kendaraan');
+            // --- Hapus Kolom services_id Lama --- (Seperti yang sudah kita bahas)
+            // ... (Kode untuk menghapus services_id) ...
+            
+            // --- Tambahkan Kolom jenis_service Baru (ENUM) ---
+            // ✅ Tambahkan pengecekan if di sini
+            if (!Schema::hasColumn('bookings', 'jenis_service')) {
+                $table->enum('jenis_service', [
+                    'Servis Ringan', 
+                    'Servis Berat', 
+                    'Ganti Oli', 
+                    'Perbaikan Rem', 
+                    'Tune Up'
+                ])->after('nama_kendaraan');
+            }
         });
     }
-
-    public function down(): void
-    {
-        Schema::table('bookings', function (Blueprint $table) {
-            // Kembalikan kolom services_id jika rollback
-            $table->foreignId('services_id')->nullable()->constrained()->onDelete('cascade');
-            
-            // Hapus kolom jenis_service
-            $table->dropColumn('jenis_service');
-        });
-    }
+// ...
 };
