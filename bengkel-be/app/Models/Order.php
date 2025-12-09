@@ -2,28 +2,26 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Order extends Model
 {
-    use HasFactory;
-
     protected $fillable = [
         'user_id',
+        'items',
         'name',
         'no_tlp',
         'address',
         'delivery',
         'payment',
         'total',
-        'status',
+        'status'
     ];
 
-    public function items()
-    {
-        return $this->hasMany(OrderItem::class);
-    }
+    // <-- WAJIB ADA!
+    protected $casts = [
+        'items' => 'array'   // menyimpan & mengambil otomatis sebagai JSON
+    ];
 
     public function user()
     {

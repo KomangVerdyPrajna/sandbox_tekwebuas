@@ -5,51 +5,56 @@ import { Truck, CheckCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 
 // ===============================
-// Interface Order
+// Type Order sesuai database
 // ===============================
 interface Order {
   id: number;
-  product: string;
-  image: string;
-  status: "diproses" | "selesai";
-  date: string;
-  price: number;
+  items: {
+    product_id: number;
+    quantity: number;
+    subtotal: number;
+  }[];
+  name: string;
+  total: number;
+  status: string;
+  created_at: string;
 }
 
-// ===============================
-// Pesanan Page
-// ===============================
+// Ambil token pada cookie
+const getCookie = (name: string) => {
+  const match = document.cookie.match(new RegExp("(^| )" + name + "=([^;]+)"));
+  return match ? decodeURIComponent(match[2]) : null;
+};
+
 export default function PesananPage() {
   const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    // Ambil data pesanan lama dari localStorage
-    const savedOrders = localStorage.getItem("orders");
-    const parsedOrders: Order[] = savedOrders ? JSON.parse(savedOrders) : [];
+  // ================= GET DATA ORDER =================
+  const fetchOrders = async () => {
+    try {
+      const token = getCookie("token");
+      if (!token) return alert("Silahkan login dulu!");
 
-    // Cek apakah ada item baru dari "Beli Sekarang"
-    const checkoutItem = localStorage.getItem("checkoutItem");
-    if (checkoutItem) {
-      const product = JSON.parse(checkoutItem);
-      const newOrder: Order = {
-        id: Date.now(), // ID unik berdasarkan timestamp
-        product: product.name,
-        image: product.img_url,
-        status: "diproses",
-        date: new Date().toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" }),
-        price: product.price,
-      };
+      const res = await fetch("http://localhost:8000/api/orders", {
+        headers: { Authorization: `Bearer ${token}` }
+      });
 
-      // Tambahkan ke list pesanan
-      parsedOrders.unshift(newOrder);
-      // Hapus item checkout agar tidak duplikat
-      localStorage.removeItem("checkoutItem");
-      // Simpan kembali ke localStorage
-      localStorage.setItem("orders", JSON.stringify(parsedOrders));
+      const data = await res.json();
+      if (!res.ok) throw new Error(data);
+
+      setOrders(data.orders);
+    } catch (e) {
+      console.error(e);
+      alert("Gagal memuat daftar pesanan!");
+    } finally {
+      setLoading(false);
     }
+  };
 
-    setOrders(parsedOrders);
-  }, []);
+  useEffect(() => { fetchOrders(); }, []);
+
+  if (loading) return <p className="text-center mt-10">Memuat pesanan...</p>;
 
   return (
     <div className="p-4 sm:p-6 max-w-3xl mx-auto space-y-6 sm:space-y-8 bg-gray-50 min-h-screen">
@@ -67,42 +72,34 @@ export default function PesananPage() {
               className="bg-white rounded-xl shadow-lg border border-gray-200 hover:shadow-xl transition-all"
             >
               {/* HEADER */}
-              <div className="flex justify-between items-center px-3 py-2 sm:px-4 sm:py-3 border-b bg-gray-50 rounded-t-xl">
-                <span className="text-xs sm:text-sm text-gray-500">{item.date}</span>
-                <span className={`flex items-center gap-1 text-[10px] sm:text-xs font-bold px-2 py-0.5 sm:px-3 sm:py-1 rounded-full uppercase
-                  ${item.status === "selesai" ? "bg-green-100 text-green-700" : "bg-orange-100 text-orange-700"}
-                `}>
-                  {item.status === "selesai" 
-                    ? <><CheckCircle size={12} /> Selesai</>
-                    : <><Truck size={12} /> Sedang Diproses</>}
+              <div className="flex justify-between items-center px-4 py-3 border-b bg-gray-50 rounded-t-xl">
+                <span className="text-sm text-gray-500">
+                  {new Date(item.created_at).toLocaleDateString("id-ID", {
+                    day:"2-digit", month:"short", year:"numeric"
+                  })}
+                </span>
+
+                <span className={`flex items-center gap-1 text-xs font-bold px-3 py-1 rounded-full uppercase
+                  ${item.status === "completed" ? "bg-green-100 text-green-700" : "bg-orange-100 text-orange-700"}`}
+                >
+                  {item.status === "completed"
+                    ? <><CheckCircle size={12}/> Selesai</>
+                    : <><Truck size={12}/> Diproses</>}
                 </span>
               </div>
 
-              {/* PRODUCT ROW */}
-              <div className="flex gap-3 p-3 sm:gap-4 sm:p-4 items-center">
-                <img 
-                  src={item.image} 
-                  alt={item.product} 
-                  className="w-16 h-16 sm:w-20 sm:h-20 object-cover rounded-lg border shrink-0"
-                  onError={(e) => {
-                    e.currentTarget.onerror = null;
-                    e.currentTarget.src = "https://placehold.co/80x80?text=Produk";
-                  }}
-                />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm sm:text-lg font-semibold text-[#234C6A] line-clamp-2">{item.product}</p>
-                  <p className="text-xs sm:text-sm text-gray-500">Jumlah: 1 barang</p>
-                  <p className="font-bold text-[#FF6D1F] mt-1 text-sm sm:text-base">
-                    Rp {item.price.toLocaleString("id-ID")}
-                  </p>
-                </div>
+              <div className="p-4 space-y-1">
+                <p className="font-semibold text-[#234C6A] text-lg">Pesanan #{item.id}</p>
+                <p className="text-sm text-gray-600">Jumlah barang: {item.items.length}</p>
+                <p className="font-bold text-[#FF6D1F] text-lg">
+                  Total: Rp {item.total.toLocaleString("id-ID")}
+                </p>
               </div>
 
-              {/* FOOTER BUTTON */}
-              <div className="border-t px-3 py-2 sm:px-4 sm:py-3 flex justify-end bg-gray-50 rounded-b-xl">
+              <div className="border-t px-4 py-3 flex justify-end bg-gray-50 rounded-b-xl">
                 <Link 
                   href={`/marketplace/pesanan/${item.id}`}
-                  className="bg-[#234C6A] text-white px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg hover:bg-[#1A374A] transition-colors text-xs sm:text-sm font-medium shadow-md"
+                  className="bg-[#234C6A] text-white px-4 py-2 rounded-lg hover:bg-[#1A374A] transition text-sm font-medium shadow-md"
                 >
                   Lihat Detail
                 </Link>

@@ -13,14 +13,14 @@ return new class extends Migration
 
             $table->foreignId('user_id')->constrained()->onDelete('cascade');
 
+            $table->text('items'); // 🟠 semua produk & qty disimpan disini (string)
             $table->string('name');
             $table->string('no_tlp');
             $table->text('address');
-            $table->enum('delivery', ['ambil_di_tempat', 'kurir']);
-            $table->enum('payment', ['tunai', 'transfer']);
-
-            $table->integer('total'); // total / grand total
-            $table->enum('status', ['pending', 'processing', 'shipped', 'completed', 'cancelled'])
+            $table->enum('delivery',['ambil_di_tempat','kurir']);
+            $table->enum('payment',['tunai','transfer']);
+            $table->integer('total');
+            $table->enum('status',['pending','processing','shipped','completed','cancelled'])
                   ->default('pending');
 
             $table->timestamps();
