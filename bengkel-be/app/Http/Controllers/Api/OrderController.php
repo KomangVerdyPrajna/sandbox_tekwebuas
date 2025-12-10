@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Api;
 
 use Illuminate\Routing\Controller;
- // boleh
 use Illuminate\Http\Request;
 use App\Models\Order;
 use App\Models\Cart;
@@ -14,10 +13,10 @@ class OrderController extends Controller
 {
     public function __construct()
     {
-        $this->middleware('auth:sanctum'); // <- kamu minta tetap pakai route middleware, ini aman!
+        $this->middleware('auth:sanctum');
     }
 
-    // Ambil semua pesanan milik user login
+    // Ambil pesanan user
     public function index(Request $request)
     {
         $orders = Order::where('user_id', $request->user()->id)
@@ -30,7 +29,7 @@ class OrderController extends Controller
         ], 200);
     }
 
-    // Checkout
+    // Checkout (SIMPAN ITEMS DALAM JSON)
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -54,16 +53,17 @@ class OrderController extends Controller
         try {
             $order = Order::create([
                 'user_id' => $request->user()->id,
-                'items' => $request->items,
+                'items' => json_encode($request->items), // 🔥 penting!
                 'name' => $request->name,
                 'no_tlp' => $request->no_tlp,
                 'address' => $request->address,
                 'delivery' => $request->delivery,
                 'payment' => $request->payment,
                 'total' => $request->total,
+                'status' => 'pending'
             ]);
 
-            // kosongkan cart setelah checkout
+            // Kosongkan keranjang pengguna
             Cart::where('user_id', $request->user()->id)->delete();
 
             return response()->json([
@@ -77,7 +77,6 @@ class OrderController extends Controller
         }
     }
 
-    // Detail order user
     public function show($id, Request $request)
     {
         $order = Order::where('user_id', $request->user()->id)->findOrFail($id);
@@ -86,18 +85,5 @@ class OrderController extends Controller
             'message' => 'Detail pesanan',
             'order' => $order
         ], 200);
-    }
-
-    // Update status (opsional admin)
-    public function update(Request $request, Order $order)
-    {
-        $order->update($request->all());
-        return response()->json(['message' => 'Status diperbarui', 'order'=>$order]);
-    }
-
-    public function destroy(Order $order)
-    {
-        $order->delete();
-        return response()->json(['message'=>'Pesanan dihapus']);
     }
 }

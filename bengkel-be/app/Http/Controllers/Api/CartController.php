@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Log;
 
 class CartController extends Controller
 {
-    // --- List cart items ---
+    /* ===================== LIST CART ===================== */
     public function index(Request $request)
     {
         try {
@@ -20,15 +20,24 @@ class CartController extends Controller
                 ->where('user_id', $user->id)
                 ->get();
 
-            // Safety check: jika product hilang
+            // 🔥 Mapping supaya harga promo dari tabel cart dipakai
             $cartItems = $cartItems->map(function($item) {
-                if(!$item->product) {
+
+                if(!$item->product){
                     $item->product = (object)[
                         'name' => 'Produk tidak tersedia',
                         'price' => 0,
-                        'image_url' => ''
+                        'img_url' => ''
                     ];
                 }
+
+                // Jika harga tersimpan < harga asli berarti promo
+                if($item->price && $item->price < $item->product->price){
+                    $item->product->original_price = $item->product->price;
+                    $item->product->price = $item->price; // harga promo final
+                    $item->product->is_promo = true;
+                }
+
                 return $item;
             });
 
@@ -40,48 +49,49 @@ class CartController extends Controller
         }
     }
 
-    // --- Add item to cart ---
-   public function store(Request $request)
-{
-    try {
-        $request->validate([
-            'product_id' => 'required|exists:products,id',
-            'quantity' => 'required|integer|min:1',
-            'price' => 'nullable|numeric' // <-- TAMBAHKAN HARGA PROMO
-        ]);
-
-        $user = $request->user();
-        $product = Product::find($request->product_id);
-
-        // Tentukan harga akhir
-        $finalPrice = $request->price ?? $product->price;
-
-        // Cek apakah produk sudah ada di cart
-        $cartItem = Cart::where('user_id', $user->id)
-            ->where('product_id', $request->product_id)
-            ->first();
-
-        if($cartItem) {
-            $cartItem->quantity += $request->quantity;
-            $cartItem->price = $finalPrice;   // <--- SIMPAN HARGA PROMO
-            $cartItem->save();
-        } else {
-            $cartItem = Cart::create([
-                'user_id'   => $user->id,
-                'product_id'=> $request->product_id,
-                'quantity'  => $request->quantity,
-                'price'     => $finalPrice,    // <--- WAJIB SIMPAN DISINI
+    /* ===================== ADD TO CART ===================== */
+    public function store(Request $request)
+    {
+        try {
+            $request->validate([
+                'product_id' => 'required|exists:products,id',
+                'quantity'   => 'required|integer|min:1',
+                'price'      => 'nullable|numeric' // menerima harga promo
             ]);
+
+            $user = $request->user();
+            $product = Product::find($request->product_id);
+
+            // Harga Final = Harga promo diterima dari FE / harga asli
+            $finalPrice = $request->price ?? $product->price;
+
+            $cartItem = Cart::where('user_id',$user->id)
+                ->where('product_id',$request->product_id)
+                ->first();
+
+            // Bila sudah ada → update quantity & tetap gunakan harga promo terakhir
+            if($cartItem){
+                $cartItem->quantity += $request->quantity;
+                $cartItem->price = $finalPrice;
+                $cartItem->save();
+            }else{
+                $cartItem = Cart::create([
+                    'user_id' => $user->id,
+                    'product_id' => $request->product_id,
+                    'quantity' => $request->quantity,
+                    'price'    => $finalPrice, // 🔥 harga promo tersimpan
+                ]);
+            }
+
+            return response()->json(['cart_item' => $cartItem], 201);
+
+        } catch (\Exception $e) {
+            Log::error('Cart store error: '.$e->getMessage());
+            return response()->json(['message'=>'Gagal menambah item ke cart'],500);
         }
-
-        return response()->json(['cart_item' => $cartItem], 201);
-
-    } catch (\Exception $e) {
-        \Log::error('Cart store error: '.$e->getMessage());
-        return response()->json(['message'=>'Gagal menambah item ke cart'],500);
     }
-}
-    // --- Update quantity ---
+
+    /* ===================== UPDATE QTY ===================== */
     public function update(Request $request, $id)
     {
         try {
@@ -91,8 +101,8 @@ class CartController extends Controller
 
             $user = $request->user();
 
-            $cartItem = Cart::where('id', $id)
-                ->where('user_id', $user->id)
+            $cartItem = Cart::where('id',$id)
+                ->where('user_id',$user->id)
                 ->firstOrFail();
 
             $cartItem->quantity = $request->quantity;
@@ -101,19 +111,19 @@ class CartController extends Controller
             return response()->json(['cart_item' => $cartItem], 200);
 
         } catch (\Exception $e) {
-            Log::error('Cart update error: ' . $e->getMessage());
-            return response()->json(['message' => 'Gagal update cart'], 500);
+            Log::error('Cart update error: '.$e->getMessage());
+            return response()->json(['message'=>'Gagal update cart'],500);
         }
     }
 
-    // --- Delete item ---
+    /* ===================== DELETE ITEM ===================== */
     public function destroy(Request $request, $id)
     {
         try {
             $user = $request->user();
 
-            $cartItem = Cart::where('id', $id)
-                ->where('user_id', $user->id)
+            $cartItem = Cart::where('id',$id)
+                ->where('user_id',$user->id)
                 ->firstOrFail();
 
             $cartItem->delete();
@@ -121,8 +131,8 @@ class CartController extends Controller
             return response()->json(['message' => 'Item berhasil dihapus'], 200);
 
         } catch (\Exception $e) {
-            Log::error('Cart delete error: ' . $e->getMessage());
-            return response()->json(['message' => 'Gagal hapus item'], 500);
+            Log::error('Cart delete error: '.$e->getMessage());
+            return response()->json(['message'=>'Gagal hapus item'],500);
         }
     }
 }

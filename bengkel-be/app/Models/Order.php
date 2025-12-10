@@ -6,22 +6,14 @@ use Illuminate\Database\Eloquent\Model;
 
 class Order extends Model
 {
-    protected $fillable = [
-        'user_id',
-        'items',
-        'name',
-        'no_tlp',
-        'address',
-        'delivery',
-        'payment',
-        'total',
-        'status'
-    ];
+  protected $fillable = [
+    'user_id', 'items', 'name', 'no_tlp', 'address',
+    'delivery', 'payment', 'total', 'status'
+];
 
-    // <-- WAJIB ADA!
-    protected $casts = [
-        'items' => 'array'   // menyimpan & mengambil otomatis sebagai JSON
-    ];
+protected $casts = [
+    'items' => 'array'  // kalian tetap bisa ambil sebagai array saat get
+];
 
     public function user()
     {
