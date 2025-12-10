@@ -63,11 +63,17 @@ Route::middleware(['auth:sanctum', 'role:admin,super_admin'])->group(function ()
     Route::apiResource('promotions', PromotionController::class)->except(['index', 'show']);
     Route::apiResource('cashier', CashierController::class);
 
-    // MANAJEMEN STAFF
-    Route::post('staff/register', [AdminUserController::class, 'storeStaff']);
-    Route::get('staff', [AdminUserController::class, 'index']);
-
     // BOOKING & REVIEW ADMIN
     Route::get('bookings/manage', [BookingController::class, 'indexAdmin']);
     Route::delete('reviews/{review}', [ReviewController::class, 'destroy']);
 });
+
+Route::middleware(['auth:sanctum', 'role:admin,super_admin'])->group(function () {
+
+    // STAFF MANAGEMENT (Hanya Role Super Admin yang Lolos Controller)
+    Route::get('staff', [AdminUserController::class, 'index']);          // List semua user
+    Route::post('staff/register', [AdminUserController::class, 'storeStaff']); // Buat staff
+    Route::put('staff/{id}', [AdminUserController::class, 'update']);    // Edit staff
+    Route::delete('staff/{id}', [AdminUserController::class, 'destroy']); // Hapus staff
+});
+
