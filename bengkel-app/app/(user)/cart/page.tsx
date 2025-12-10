@@ -10,8 +10,10 @@ interface CartItem {
   product: {
     id: number;
     name: string;
-    price: number;
-    img_url: string; // path relatif atau full URL
+    price: number;             // harga yg tersimpan bisa harga promo
+    original_price?: number;   // harga asli bila promo
+    is_promo?: boolean;
+    img_url: string;
   };
 }
 
@@ -27,12 +29,12 @@ export default function CartPage() {
 
   // Animasi qty
   const [animateId, setAnimateId] = useState<number | null>(null);
-  const playAnim = (id: number) => {
+  const animate = (id: number) => {
     setAnimateId(id);
-    setTimeout(() => setAnimateId(null), 200);
+    setTimeout(() => setAnimateId(null), 250);
   };
 
-  // Fetch cart
+  // GET CART
   const fetchCart = async () => {
     if (!token) return router.push("/login");
 
@@ -41,9 +43,8 @@ export default function CartPage() {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
+
       if (res.ok) setCart(data.cart_items ?? []);
-    } catch (err) {
-      console.error("Error fetch cart:", err);
     } finally {
       setLoading(false);
     }
@@ -53,18 +54,18 @@ export default function CartPage() {
     fetchCart();
   }, []);
 
-  // Update quantity
+  // UPDATE QTY
   const updateQty = async (id: number, qty: number) => {
     if (qty < 1) return;
+    animate(id);
 
-    playAnim(id);
     const product_id = cart.find(c => c.id === id)?.product.id;
     if (!product_id) return;
 
-    await fetch(`http://localhost:8000/api/carts/${id}`, {
+    await fetch(`http://localhost:8000/api/cart/${id}`, {
       method: "PUT",
       headers: {
-        "Authorization": `Bearer ${token}`,
+        Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ product_id, quantity: qty }),
@@ -73,17 +74,20 @@ export default function CartPage() {
     fetchCart();
   };
 
-  // Remove item
+  // REMOVE ITEM
   const removeItem = async (id: number) => {
-    await fetch(`http://localhost:8000/api/carts/${id}`, {
+    await fetch(`http://localhost:8000/api/cart/${id}`, {
       method: "DELETE",
-      headers: { "Authorization": `Bearer ${token}` },
+      headers: { Authorization: `Bearer ${token}` },
     });
     fetchCart();
   };
 
-  // Total
-  const total = cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
+  // TOTAL harga — otomatis mengikuti harga promo karena pakai item.product.price
+  const total = cart.reduce(
+    (sum, item) => sum + item.product.price * item.quantity,
+    0
+  );
 
   if (loading) return <p className="text-center mt-10">Memuat keranjang...</p>;
 
@@ -98,7 +102,7 @@ export default function CartPage() {
           <span className="ml-auto text-gray-500 text-sm">({cart.length} item)</span>
         </div>
 
-        {/* Jika kosong */}
+        {/* KOSONG */}
         {cart.length === 0 && (
           <div className="text-center bg-white p-10 rounded-xl shadow">
             <p className="text-gray-600 mb-4 text-lg">Keranjang masih kosong</p>
@@ -111,67 +115,71 @@ export default function CartPage() {
           </div>
         )}
 
-        {/* ITEM LIST */}
+        {/* LIST */}
         <div className="space-y-5">
           {cart.map(item => {
-            // Fix gambar: cek apakah img_url full URL atau relative
             const imgSrc = item.product.img_url.startsWith("http")
               ? item.product.img_url
               : `http://localhost:8000/storage/${item.product.img_url}`;
 
+            const isPromo =
+              item.product.original_price &&
+              item.product.original_price > item.product.price;
+
             return (
               <div key={item.id}
-                className="flex bg-white p-5 rounded-xl shadow-md gap-6 items-center border hover:shadow-xl hover:-translate-y-0.5 transition duration-200"
+                className="flex bg-white p-5 rounded-xl shadow-md gap-6 items-center border hover:shadow-xl hover:-translate-y-0.5 transition"
               >
 
-                {/* Gambar Produk */}
+                {/* IMAGE */}
                 <div className="w-24 h-24 rounded-lg overflow-hidden bg-gray-200 flex items-center justify-center border">
                   <img
                     src={imgSrc}
                     className="object-cover w-full h-full"
-                    onError={(e) => e.currentTarget.src = "/no-image.png"}
+                    onError={(e) => { e.currentTarget.src = "/no-image.png"; }}
                   />
                 </div>
 
-                {/* Detail */}
+                {/* DETAIL */}
                 <div className="flex flex-col flex-1">
-                  <h2 className="font-semibold text-[19px] text-[#234C6A] leading-tight">
-                    {item.product.name}
-                  </h2>
-                  <p className="text-[#FF6D1F] font-bold text-[17px] mt-1">
-                    Rp {item.product.price.toLocaleString("id-ID")}
-                  </p>
+                  <h2 className="font-semibold text-[19px] text-[#234C6A] leading-tight">{item.product.name}</h2>
+
+                  {/* HARGA SUPPORT PROMO */}
+                  {isPromo ? (
+                    <div className="flex flex-col mt-1">
+                      <span className="text-sm line-through text-gray-500">
+                        Rp {item.product.original_price?.toLocaleString("id-ID")}
+                      </span>
+                      <span className="text-[#FF6D1F] font-bold text-[18px]">
+                        Rp {item.product.price.toLocaleString("id-ID")}
+                      </span>
+                    </div>
+                  ) : (
+                    <p className="text-[#FF6D1F] font-bold text-[18px] mt-1">
+                      Rp {item.product.price.toLocaleString("id-ID")}
+                    </p>
+                  )}
                 </div>
 
-                {/* Qty Control */}
+                {/* QTY */}
                 <div className="flex items-center gap-3">
-                  <button
-                    onClick={() => updateQty(item.id, item.quantity - 1)}
-                    className="w-9 h-9 flex items-center justify-center bg-gray-200 rounded-full hover:bg-gray-300 active:scale-95 transition"
-                  >
+                  <button onClick={() => updateQty(item.id, item.quantity - 1)}
+                    className="w-9 h-9 flex items-center justify-center bg-gray-200 rounded-full hover:bg-gray-300">
                     <Minus size={18} className="text-[#234C6A]" />
                   </button>
 
-                  <span
-                    className={`font-semibold text-[18px] w-6 text-center text-[#234C6A] transition-all duration-200
-                      ${animateId === item.id ? "scale-125 opacity-90" : "scale-100 opacity-100"}`}
-                  >
+                  <span className={`font-semibold text-[18px] w-6 text-center text-[#234C6A] transition ${animateId === item.id ? "scale-125" : ""}`}>
                     {item.quantity}
                   </span>
 
-                  <button
-                    onClick={() => updateQty(item.id, item.quantity + 1)}
-                    className="w-9 h-9 flex items-center justify-center bg-gray-200 rounded-full hover:bg-gray-300 active:scale-95 transition"
-                  >
+                  <button onClick={() => updateQty(item.id, item.quantity + 1)}
+                    className="w-9 h-9 flex items-center justify-center bg-gray-200 rounded-full hover:bg-gray-300">
                     <Plus size={18} className="text-[#234C6A]" />
                   </button>
                 </div>
 
-                {/* Delete */}
-                <button
-                  onClick={() => removeItem(item.id)}
-                  className="text-red-500 hover:text-red-700 ml-2"
-                >
+                {/* DELETE */}
+                <button onClick={() => removeItem(item.id)} className="text-red-500 hover:text-red-700 ml-2">
                   <Trash2 size={22} />
                 </button>
 
@@ -180,17 +188,15 @@ export default function CartPage() {
           })}
         </div>
 
-        {/* SUMMARY */}
+        {/* FOOTER TOTAL */}
         {cart.length > 0 && (
           <div className="mt-10 bg-white p-6 rounded-xl shadow flex justify-between items-center border">
             <p className="text-xl font-bold text-[#234C6A]">
-              Total : <span className="text-[#FF6D1F]">Rp {total.toLocaleString('id-ID')}</span>
+              Total : <span className="text-[#FF6D1F]">Rp {total.toLocaleString("id-ID")}</span>
             </p>
 
-            <button
-              onClick={() => router.push("/checkout")}
-              className="bg-[#FF6D1F] text-white px-7 py-3 rounded-full font-bold text-lg hover:bg-[#e65b14] transition"
-            >
+            <button onClick={() => router.push("/checkout")}
+              className="bg-[#FF6D1F] text-white px-7 py-3 rounded-full font-bold text-lg hover:bg-[#e65b14] transition">
               Checkout
             </button>
           </div>

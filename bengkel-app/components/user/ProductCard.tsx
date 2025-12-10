@@ -5,10 +5,12 @@ import { PlusCircle } from "lucide-react";
 interface Product {
   id: number;
   name: string;
-  price: number;
+  price: number;             // harga promo jika promo aktif
+  original_price?: number;   // harga normal (jika promo)
   stock: number;
   img_url: string;
   jenis_barang: string;
+  is_promo?: boolean;        // flag promo
 }
 
 interface Props {
@@ -38,10 +40,25 @@ export default function ProductCard({ product, onAdd, onClick }: Props) {
           <p className="text-sm text-gray-500">{product.jenis_barang}</p>
         </div>
 
+        {/* ====== Harga Promo Support ====== */}
         <div className="flex justify-between items-center">
-          <p className="text-xl font-bold text-[#FF6D1F]">
-            Rp {product.price.toLocaleString("id-ID")}
-          </p>
+          <div>
+            {product.is_promo && product.original_price ? (
+              <>
+                <p className="text-sm text-gray-400 line-through">
+                  Rp {product.original_price.toLocaleString("id-ID")}
+                </p>
+                <p className="text-xl font-bold text-[#FF6D1F]">
+                  Rp {product.price.toLocaleString("id-ID")}
+                </p>
+              </>
+            ) : (
+              <p className="text-xl font-bold text-[#FF6D1F]">
+                Rp {product.price.toLocaleString("id-ID")}
+              </p>
+            )}
+          </div>
+
           <button
             onClick={(e)=>{
               e.stopPropagation();

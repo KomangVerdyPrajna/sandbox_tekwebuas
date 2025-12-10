@@ -41,40 +41,46 @@ class CartController extends Controller
     }
 
     // --- Add item to cart ---
-    public function store(Request $request)
-    {
-        try {
-            $request->validate([
-                'product_id' => 'required|exists:products,id',
-                'quantity' => 'required|integer|min:1'
+   public function store(Request $request)
+{
+    try {
+        $request->validate([
+            'product_id' => 'required|exists:products,id',
+            'quantity' => 'required|integer|min:1',
+            'price' => 'nullable|numeric' // <-- TAMBAHKAN HARGA PROMO
+        ]);
+
+        $user = $request->user();
+        $product = Product::find($request->product_id);
+
+        // Tentukan harga akhir
+        $finalPrice = $request->price ?? $product->price;
+
+        // Cek apakah produk sudah ada di cart
+        $cartItem = Cart::where('user_id', $user->id)
+            ->where('product_id', $request->product_id)
+            ->first();
+
+        if($cartItem) {
+            $cartItem->quantity += $request->quantity;
+            $cartItem->price = $finalPrice;   // <--- SIMPAN HARGA PROMO
+            $cartItem->save();
+        } else {
+            $cartItem = Cart::create([
+                'user_id'   => $user->id,
+                'product_id'=> $request->product_id,
+                'quantity'  => $request->quantity,
+                'price'     => $finalPrice,    // <--- WAJIB SIMPAN DISINI
             ]);
-
-            $user = $request->user();
-
-            // cek apakah product sudah ada di cart
-            $cartItem = Cart::where('user_id', $user->id)
-                ->where('product_id', $request->product_id)
-                ->first();
-
-            if($cartItem) {
-                $cartItem->quantity += $request->quantity;
-                $cartItem->save();
-            } else {
-                $cartItem = Cart::create([
-                    'user_id' => $user->id,
-                    'product_id' => $request->product_id,
-                    'quantity' => $request->quantity
-                ]);
-            }
-
-            return response()->json(['cart_item' => $cartItem], 201);
-
-        } catch (\Exception $e) {
-            Log::error('Cart store error: ' . $e->getMessage());
-            return response()->json(['message' => 'Gagal menambah item ke cart'], 500);
         }
-    }
 
+        return response()->json(['cart_item' => $cartItem], 201);
+
+    } catch (\Exception $e) {
+        \Log::error('Cart store error: '.$e->getMessage());
+        return response()->json(['message'=>'Gagal menambah item ke cart'],500);
+    }
+}
     // --- Update quantity ---
     public function update(Request $request, $id)
     {
