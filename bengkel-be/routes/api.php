@@ -13,67 +13,77 @@ use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\ReviewController;
 
 // ==================================
-// 1. PUBLIC ROUTES (Hanya GET)
+// 1. PUBLIC ROUTES (No Auth Required)
 // ==================================
 Route::post('register', [AuthController::class, 'register']);
 Route::post('login', [AuthController::class, 'login']);
 
-// Akses Publik untuk Read (Index dan Show)
+// Produk Public
 Route::get('products', [ProductController::class, 'index']);
 Route::get('products/{id}', [ProductController::class, 'show']);
 
-Route::apiResource('promotions', PromotionController::class)->only(['index', 'show']);
+// PROMOTION PUBLIC UNTUK MARKETPLACE USER
+Route::get('promotions/public', [PromotionController::class, 'public']);
+
+// *** Public hanya boleh melihat (index & show) ***
+Route::apiResource('promotions', PromotionController::class)->only(['index','show']);
+
 
 // ===========================================
 // 2. USER AUTHENTICATED ROUTES
 // ===========================================
 Route::middleware('auth:sanctum')->group(function () {
 
+    // Profile
     Route::get('auth/profile', [AuthController::class, 'profile']);
     Route::post('auth/logout', [AuthController::class, 'logout']);
 
-    // --- CART ROUTES ---
-    Route::get('cart', [CartController::class, 'index']);       // Ambil semua item cart
-    Route::post('cart', [CartController::class, 'store']);      // Tambah item ke cart
-    Route::put('cart/{id}', [CartController::class, 'update']); // Update quantity
-    Route::delete('cart/{id}', [CartController::class, 'destroy']); // Hapus item
+    // === CART ===
+    Route::get('cart', [CartController::class,'index']);
+    Route::post('cart', [CartController::class,'store']);
+    Route::put('cart/{id}', [CartController::class,'update']);
+    Route::delete('cart/{id}', [CartController::class,'destroy']);
 
-    // --- ORDER, REVIEW, BOOKING ---
+    // === ORDER, REVIEW, BOOKING ===
     Route::apiResource('orders', OrderController::class);
     Route::apiResource('reviews', ReviewController::class)->except(['destroy']);
-    Route::apiResource('bookings', BookingController::class)->only(['store', 'update', 'destroy', 'index', 'show']);
+
+    Route::apiResource('bookings', BookingController::class)
+        ->only(['store','update','destroy','index','show']);
 });
+
 
 // =======================================================
 // 3. ADMIN ONLY (CRUD PRODUCT & MANAGEMENT)
 // =======================================================
-Route::middleware(['auth:sanctum', 'role:admin,super_admin'])->group(function () {
+Route::middleware(['auth:sanctum','role:admin,super_admin'])->group(function () {
 
-    // ----------------------------------------------------
-    // PRODUK CRUD (Menggunakan apiResource)
-    // ----------------------------------------------------
-    Route::apiResource('products', ProductController::class)->except(['index', 'show']);
-    
-    // TIMPA (OVERRIDE) Rute Update agar menerima POST/PUT untuk file upload
-    Route::match(['put', 'post'], 'products/{product}', [ProductController::class, 'update']);
+    // === PRODUCT CRUD ADMIN ===
+    Route::apiResource('products', ProductController::class)->except(['index','show']);
+    Route::match(['put','post'], 'products/{product}', [ProductController::class,'update']);
 
-    // ----------------------------------------------------
-    // MANAJEMEN LAIN
+    // === CATEGORY/PROMOTION/CASHIER ===
     Route::apiResource('categories', CategoryController::class);
-    Route::apiResource('promotions', PromotionController::class)->except(['index', 'show']);
+
+    // PROMOTION CRUD ADMIN ONLY
+    Route::apiResource('promotions', PromotionController::class)->except(['index','show']);
+
     Route::apiResource('cashier', CashierController::class);
 
-    // BOOKING & REVIEW ADMIN
-    Route::get('bookings/manage', [BookingController::class, 'indexAdmin']);
+    // BOOKING ADMIN PANEL
+    Route::get('bookings/manage',[BookingController::class,'indexAdmin']);
+
+    // DELETE REVIEW
     Route::delete('reviews/{review}', [ReviewController::class, 'destroy']);
 });
 
-Route::middleware(['auth:sanctum', 'role:admin,super_admin'])->group(function () {
 
-    // STAFF MANAGEMENT (Hanya Role Super Admin yang Lolos Controller)
-    Route::get('staff', [AdminUserController::class, 'index']);          // List semua user
-    Route::post('staff/register', [AdminUserController::class, 'storeStaff']); // Buat staff
-    Route::put('staff/{id}', [AdminUserController::class, 'update']);    // Edit staff
-    Route::delete('staff/{id}', [AdminUserController::class, 'destroy']); // Hapus staff
+// =======================================================
+// 4. STAFF MANAGEMENT (Still Admin/Super Admin)
+// =======================================================
+Route::middleware(['auth:sanctum','role:admin,super_admin'])->group(function () {
+    Route::get('staff', [AdminUserController::class,'index']);
+    Route::post('staff/register',[AdminUserController::class,'storeStaff']);
+    Route::put('staff/{id}',[AdminUserController::class,'update']);
+    Route::delete('staff/{id}',[AdminUserController::class,'destroy']);
 });
-

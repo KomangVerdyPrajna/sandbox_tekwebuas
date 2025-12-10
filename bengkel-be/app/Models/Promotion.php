@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -17,17 +18,9 @@ class Promotion extends Model
         'is_active',
     ];
 
-    /**
-     * Relasi Many-to-Many ke Product.
-     */
+    // Relasi pivot ke produk
     public function products()
     {
-        // Secara default Laravel akan mencari tabel pivot 'product_promotion'
-        return $this->belongsToMany(Product::class, 'product_promotion');
-    }
-    public function promotions()
-    {
-        // Secara default Laravel akan mencari tabel pivot 'product_promotion'
-        return $this->belongsToMany(Promotion::class, 'product_promotion');
+        return $this->belongsToMany(Product::class, 'product_promotion', 'promotion_id', 'product_id');
     }
 }
