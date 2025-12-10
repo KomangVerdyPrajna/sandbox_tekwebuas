@@ -1,22 +1,20 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
-import type { CSSProperties } from "react";
+import { useState } from "react";
 import Link from "next/link";
-import { Mail, Lock, User, UserPlus } from "lucide-react";
+import { Mail, Lock, User, UserPlus, Eye, EyeOff } from "lucide-react"; // 👁 added icon
 
 export default function RegisterPage() {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPass1, setShowPass1] = useState(false);
+  const [showPass2, setShowPass2] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const cardRef = useRef<HTMLDivElement>(null);
-  const [transformStyle, setTransformStyle] = useState<CSSProperties>({});
-
-  // ⛳ CONNECT TO BACKEND REGISTER API
+  // ===================== FUNGSI DAFTAR (TIDAK DIUBAH) ====================
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -48,15 +46,11 @@ export default function RegisterPage() {
         return;
       }
 
-      // Simpan Token & User
       localStorage.setItem("token", data.token);
       localStorage.setItem("user", JSON.stringify(data.user));
 
       alert("Registrasi Berhasil!");
-
-      // Redirect setelah daftar → ke login / homepage / dashboard user
       window.location.href = "/auth/login";
-
     } catch {
       setErrorMsg("Gagal terhubung ke server!");
     } finally {
@@ -64,130 +58,112 @@ export default function RegisterPage() {
     }
   };
 
-  // Tilt Animation (tidak diubah)
-  useEffect(() => {
-    const card = cardRef.current;
-    if (!card) return;
-
-    const onMove = (e: MouseEvent) => {
-      const r = card.getBoundingClientRect();
-      const x = (e.clientX - r.left) / r.width - 0.5;
-      const y = (e.clientY - r.top) / r.height - 0.5;
-
-      setTransformStyle({
-        transform: `perspective(1000px) rotateX(${y * -8}deg) rotateY(${x * 8}deg)`,
-        transition: "transform 0.1s ease-out",
-      });
-    };
-
-    const reset = () => {
-      setTransformStyle({
-        transform: "perspective(1000px) rotateX(0deg) rotateY(0deg)",
-        transition: "transform 0.4s ease-in-out",
-      });
-    };
-
-    card.addEventListener("mousemove", onMove);
-    card.addEventListener("mouseleave", reset);
-
-    return () => {
-      card.removeEventListener("mousemove", onMove);
-      card.removeEventListener("mouseleave", reset);
-    };
-  }, []);
-
   return (
-    <div className="min-h-screen flex justify-center items-center bg-gray-100 p-4">
-      <div
-        ref={cardRef}
-        style={transformStyle}
-        className="max-w-md w-full bg-white p-8 rounded-3xl shadow-xl border border-gray-200 transition"
-      >
-        <div className="text-center mb-6">
-          <div className="inline-flex items-center justify-center p-3 bg-[#FF6D1F] text-white rounded-xl shadow">
-            <UserPlus size={28} />
-          </div>
+    <div className="min-h-screen flex justify-center items-center bg-linear-to-br from-[#234C6A] to-[#102532] p-6">
+      <div className="max-w-md w-full bg-white p-10 rounded-3xl shadow-2xl border border-gray-300">
 
-          <h1 className="text-3xl font-bold text-gray-800 mt-3">
-            Buat Akun Baru
-          </h1>
-          <p className="text-sm text-gray-600">
-            Isi data di bawah untuk membuat akun
-          </p>
+        {/* HEADER */}
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center justify-center p-4 bg-[#FF6D1F] text-white rounded-xl shadow-md">
+            <UserPlus size={32} />
+          </div>
+          <h1 className="text-3xl font-extrabold text-gray-900 mt-4">Buat Akun</h1>
+          <p className="text-gray-600 text-sm mt-1">Daftar untuk mulai menggunakan layanan</p>
         </div>
 
-        {errorMsg && <p className="text-red-500 text-center mb-2 text-sm">{errorMsg}</p>}
+        {errorMsg && <p className="text-red-600 text-center mb-3 font-medium">{errorMsg}</p>}
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="relative group">
-            <User className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
-            <input
-              type="text"
-              placeholder="Nama Lengkap"
-              className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-300 rounded-xl outline-none focus:ring-[#FF6D1F] focus:border-[#FF6D1F]"
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
-              required
-            />
-          </div>
 
-          <div className="relative group">
-            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
-            <input
-              type="email"
-              placeholder="Email"
-              className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-300 rounded-xl outline-none focus:ring-[#FF6D1F] focus:border-[#FF6D1F]"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
-          </div>
+          {/* Nama */}
+          <InputField icon={<User size={18}/>} placeholder="Nama Lengkap" value={fullName} setValue={setFullName}/>
 
-          <div className="relative group">
-            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+          {/* Email */}
+          <InputField icon={<Mail size={18}/>} placeholder="Email" type="email" value={email} setValue={setEmail}/>
+
+          {/* Password */}
+          <div className="relative">
+            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[#FF6D1F]">
+              <Lock size={18}/>
+            </span>
+
             <input
-              type="password"
+              type={showPass1 ? "text" : "password"}
               placeholder="Password"
-              className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-300 rounded-xl outline-none focus:ring-[#FF6D1F] focus:border-[#FF6D1F]"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e)=>setPassword(e.target.value)}
               required
+              className="w-full pl-12 pr-12 py-3 border border-gray-400 rounded-xl
+                bg-white text-gray-900 font-semibold placeholder:text-gray-400
+                focus:ring-2 focus:ring-[#FF6D1F] focus:border-[#FF6D1F] outline-none transition"
             />
+
+            <button type="button" onClick={()=>setShowPass1(!showPass1)}
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-[#FF6D1F]">
+              {showPass1 ? <EyeOff size={20}/> : <Eye size={20}/>}
+            </button>
           </div>
 
-          <div className="relative group">
-            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+          {/* Konfirmasi */}
+          <div className="relative">
+            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[#FF6D1F]">
+              <Lock size={18}/>
+            </span>
+
             <input
-              type="password"
+              type={showPass2 ? "text" : "password"}
               placeholder="Konfirmasi Password"
-              className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-300 rounded-xl outline-none focus:ring-[#FF6D1F] focus:border-[#FF6D1F]"
               value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
+              onChange={(e)=>setConfirmPassword(e.target.value)}
               required
+              className="w-full pl-12 pr-12 py-3 border border-gray-400 rounded-xl
+                bg-white text-gray-900 font-semibold placeholder:text-gray-400
+                focus:ring-2 focus:ring-[#FF6D1F] focus:border-[#FF6D1F] outline-none transition"
             />
+
+            <button type="button" onClick={()=>setShowPass2(!showPass2)}
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-[#FF6D1F]">
+              {showPass2 ? <EyeOff size={20}/> : <Eye size={20}/>}
+            </button>
           </div>
 
-          <label className="flex items-center text-sm text-gray-700">
-            <input type="checkbox" className="mr-2 accent-[#FF6D1F]" required />
-            Saya setuju dengan Syarat & Ketentuan
+          <label className="flex items-center text-sm font-medium text-gray-700">
+            <input type="checkbox" className="mr-2 accent-[#FF6D1F]" required/> Saya setuju dengan Syarat & Ketentuan
           </label>
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-[#FF6D1F] hover:bg-orange-600 text-white font-semibold py-3 rounded-xl shadow-md transition"
-          >
-            {loading ? "Mendaftarkan..." : <><UserPlus className="inline mr-2"/> Daftar Sekarang</>}
+            className="w-full bg-[#FF6D1F] hover:bg-orange-600 text-white font-semibold py-3 rounded-xl
+              shadow-md hover:shadow-xl transition text-base tracking-wide">
+            {loading ? "Mendaftarkan..." : "Daftar Sekarang"}
           </button>
+
         </form>
 
-        <p className="text-center text-sm mt-5 text-gray-600">
-          Sudah punya akun?{" "}
-          <Link href="/auth/login" className="text-[#FF6D1F] font-semibold hover:underline">
-            Masuk
-          </Link>
+        <p className="text-center text-sm mt-6 text-gray-700">
+          Sudah punya akun?
+          <Link href="/auth/login" className="text-[#FF6D1F] font-semibold ml-1 hover:underline">Masuk</Link>
         </p>
       </div>
     </div>
   );
 }
+
+const InputField = ({ icon, value, setValue, placeholder, type="text" }: any) => (
+  <div className="relative">
+    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[#FF6D1F]">
+      {icon}
+    </span>
+    <input
+      type={type}
+      placeholder={placeholder}
+      value={value}
+      onChange={(e)=>setValue(e.target.value)}
+      required
+      className="w-full pl-12 pr-4 py-3 border border-gray-400 rounded-xl
+        bg-white text-gray-900 font-semibold placeholder:text-gray-400
+        focus:ring-2 focus:ring-[#FF6D1F] focus:border-[#FF6D1F] outline-none transition"
+    />
+  </div>
+);

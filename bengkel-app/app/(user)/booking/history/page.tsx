@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { CheckCircle, Clock, Wrench, Calendar, Tag, Car, Phone, BookOpen, User } from "lucide-react";
 
-// === Interface berdasarkan response Laravel ===
+// === Interface sesuai API ===
 interface Booking {
   id: number;
   jenis_kendaraan: string;
@@ -15,7 +15,7 @@ interface Booking {
   status: "Pending" | "Diterima" | "Selesai";
 }
 
-// Helper ambil token cookie
+// Helper baca cookie
 function getCookie(name: string) {
   const match = document.cookie.match(new RegExp("(^| )" + name + "=([^;]+)"));
   return match ? decodeURIComponent(match[2]) : null;
@@ -26,7 +26,7 @@ export default function RiwayatBooking() {
   const [riwayat, setRiwayat] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // ================= FETCH DATA FROM API =================
+  // ================= FETCH BOOKING =================
   async function loadBooking() {
     try {
       const token = getCookie("token");
@@ -40,75 +40,58 @@ export default function RiwayatBooking() {
 
       const data = await res.json();
 
-      if (!res.ok) {
-        console.log(data);
-        return alert("Gagal mengambil booking!");
-      }
+      // Ambil array apapun struktur API
+      const list = Array.isArray(data) ? data :
+                   Array.isArray(data.bookings) ? data.bookings :
+                   Array.isArray(data.data) ? data.data : [];
 
-      setRiwayat(data.data || data); // antisipasi format berbeda
+      setRiwayat(list);
+
     } catch (err) {
       console.error("Error fetch bookings:", err);
-      alert("Server error");
+      alert("Gagal memuat booking");
     } finally {
       setLoading(false);
     }
   }
 
-  useEffect(() => {
-    loadBooking();
-  }, []);
+  useEffect(() => { loadBooking(); }, []);
 
-  // =======================================================
-  // VIEW COMPONENT
-  // =======================================================
 
-  function statusBadge(status: Booking["status"]) {
-    let base = "px-3 py-1 rounded-full text-sm font-bold tracking-wider";
-    return {
-      Pending: <span className={`${base} bg-yellow-100 text-yellow-800 border border-yellow-300`}>Pending</span>,
-      Diterima: <span className={`${base} bg-blue-100 text-blue-800 border border-blue-300`}>Diterima</span>,
-      Selesai: <span className={`${base} bg-green-100 text-green-800 border border-green-300`}>Selesai</span>
-    }[status];
-  }
+  // ================= UI UTILITIES =================
+  const statusBadge = (status: Booking["status"]) => ({
+    Pending: <span className="px-3 py-1 rounded-full text-sm font-semibold bg-yellow-100 text-yellow-700">Pending</span>,
+    Diterima: <span className="px-3 py-1 rounded-full text-sm font-semibold bg-blue-100 text-blue-700">Diterima</span>,
+    Selesai: <span className="px-3 py-1 rounded-full text-sm font-semibold bg-green-100 text-green-700">Selesai</span>
+  }[status]);
 
-  function statusBorder(status: Booking["status"]) {
-    return {
-      Pending: "border-l-4 border-yellow-500",
-      Diterima: "border-l-4 border-blue-500",
-      Selesai: "border-l-4 border-green-500"
-    }[status];
-  }
+  const statusBorder = (status: Booking["status"]) => ({
+    Pending: "border-l-4 border-yellow-500",
+    Diterima: "border-l-4 border-blue-500",
+    Selesai: "border-l-4 border-green-500"
+  }[status]);
 
-  function statusIcon(status: Booking["status"]) {
-    return {
-      Pending: <Clock className="text-yellow-600" size={24} />,
-      Diterima: <Wrench className="text-blue-600" size={24} />,
-      Selesai: <CheckCircle className="text-green-600" size={24} />
-    }[status];
-  }
+  const statusIcon = (status: Booking["status"]) => ({
+    Pending: <span className="bg-yellow-100 text-yellow-700 p-2 rounded-full shadow"><Clock size={18} /></span>,
+    Diterima: <span className="bg-blue-100 text-blue-700 p-2 rounded-full shadow"><Wrench size={18} /></span>,
+    Selesai: <span className="bg-green-100 text-green-700 p-2 rounded-full shadow"><CheckCircle size={18} /></span>
+  }[status]);
 
-  function formatDate(date: string) {
-    return new Date(date).toLocaleString("id-ID", {
-      year: "numeric", month: "long", day: "numeric",
-      hour: "2-digit", minute: "2-digit"
-    });
-  }
+  const formatDate = (date: string) =>
+    new Date(date).toLocaleString("id-ID", { year:"numeric", month:"long", day:"numeric", hour:"2-digit", minute:"2-digit" });
 
-  // =======================================================
+  // ================= LOADING =================
+  if (loading) return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-100">
+      <svg className="animate-spin h-8 w-8 text-[#FF6D1F]" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" className="opacity-30" />
+        <path fill="currentColor" d="M4 12a8 8 0 018-8V0A12 12 0 002 12h2z" />
+      </svg>
+      <p className="ml-3 text-[#234C6A] font-semibold">Memuat riwayat booking...</p>
+    </div>
+  );
 
-  if (loading)
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100">
-        <div className="flex items-center text-[#234C6A] text-lg font-medium">
-          <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-[#FF6D1F]" viewBox="0 0 24 24">
-            <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" className="opacity-25" />
-            <path fill="currentColor" className="opacity-75" d="M4 12a8 8..." />
-          </svg>
-          Memuat riwayat booking...
-        </div>
-      </div>
-    );
-
+  // ================= MAIN =================
   return (
     <div className="min-h-screen bg-gray-50 py-12">
       <div className="max-w-4xl mx-auto px-4">
@@ -118,76 +101,61 @@ export default function RiwayatBooking() {
         </h1>
 
         <div className="space-y-6">
-          {riwayat.length === 0 ? (
-            <div className="text-center p-10 bg-white rounded-xl shadow-md border border-gray-200">
-              <p className="text-gray-500 text-lg">Belum ada booking tercatat.</p>
-            </div>
-          ) : (
-            riwayat.map(item => (
-              <div key={item.id} className={`bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition ${statusBorder(item.status)}`}>
-                
-                {/* Header */}
-                <div className="flex justify-between items-start border-b pb-4 mb-4">
-                  <div className="flex items-center gap-4">
-                    {statusIcon(item.status)}
-                    <h2 className="text-2xl font-bold text-gray-800 flex items-center">
-                      <User className="w-5 h-5 mr-2 text-gray-600" /> {item.nama_kendaraan}
-                    </h2>
-                  </div>
-                  {statusBadge(item.status)}
+
+        {riwayat.length === 0 ? (
+          <div className="text-center p-10 bg-white rounded-xl shadow-md border">
+            <p className="text-gray-500 text-lg">Belum ada booking tercatat.</p>
+          </div>
+        ) : (
+          riwayat.map(item => (
+            <div key={item.id} className={`bg-white rounded-xl shadow-md p-6 hover:shadow-xl transition ${statusBorder(item.status)}`}>
+
+              {/* Header */}
+              <div className="flex justify-between items-center border-b pb-4 mb-4">
+                <div className="flex items-center gap-3">
+                  {statusIcon(item.status)}
+                  <h2 className="text-xl font-bold text-gray-800 flex items-center">
+                    <User size={18} className="mr-1 text-gray-700" /> {item.nama_kendaraan}
+                  </h2>
                 </div>
-
-                {/* Detail */}
-                <div className="grid sm:grid-cols-2 gap-y-4 gap-x-8 text-base">
-
-                  <div className="flex items-center">
-                    <Car className="text-gray-400 mr-3 w-5 h-5" />
-                    <div>
-                      <p className="text-xs text-gray-500 uppercase">Jenis Kendaraan</p>
-                      <p className="font-semibold">{item.jenis_kendaraan}</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center">
-                    <Tag className="text-gray-400 mr-3 w-5 h-5" />
-                    <div>
-                      <p className="text-xs text-gray-500 uppercase">Servis</p>
-                      <p className="font-semibold">{item.jenis_service}</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center">
-                    <Calendar className="text-gray-400 mr-3 w-5 h-5" />
-                    <div>
-                      <p className="text-xs text-gray-500 uppercase">Tanggal</p>
-                      <p className="font-semibold">{formatDate(item.booking_date)}</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center">
-                    <Phone className="text-gray-400 mr-3 w-5 h-5" />
-                    <div>
-                      <p className="text-xs text-gray-500 uppercase">WA</p>
-                      <p className="font-semibold">{item.no_wa}</p>
-                    </div>
-                  </div>
-                </div>
-
-                {item.notes && (
-                  <div className="mt-6 pt-4 border-t">
-                    <div className="flex items-center text-sm font-medium text-[#234C6A] mb-2">
-                      <BookOpen size={14} className="mr-2" /> Catatan
-                    </div>
-                    <p className="text-gray-600 italic bg-gray-50 p-3 rounded-lg border">
-                      {item.notes}
-                    </p>
-                  </div>
-                )}
+                {statusBadge(item.status)}
               </div>
-            ))
-          )}
-        </div>
 
+              {/* Detail */}
+              <div className="grid sm:grid-cols-2 gap-6 text-base">
+                <Detail icon={<Car />} title="Jenis Kendaraan" value={item.jenis_kendaraan}/>
+                <Detail icon={<Tag />} title="Jenis Servis" value={item.jenis_service}/>
+                <Detail icon={<Calendar />} title="Tanggal Booking" value={formatDate(item.booking_date)}/>
+                <Detail icon={<Phone />} title="Whatsapp" value={item.no_wa}/>
+              </div>
+
+              {item.notes && (
+                <div className="mt-6 pt-4 border-t">
+                  <p className="font-semibold text-[#234C6A] flex items-center gap-2">
+                    <BookOpen size={16}/> Catatan
+                  </p>
+                  <p className="bg-gray-50 border rounded-lg p-3 mt-2 text-gray-700 italic">
+                    {item.notes}
+                  </p>
+                </div>
+              )}
+            </div>
+          ))
+        )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// === Reusable Detail Component (ICON STYLE BARU, LEBIH TEGAS) ===
+function Detail({icon,title,value}:{icon:any,title:string,value:string}){
+  return(
+    <div className="flex items-center gap-3">
+      <div className="p-2 rounded-full bg-[#FFEDD5] text-[#FF6D1F] shadow-sm">{icon}</div>
+      <div>
+        <p className="text-xs text-gray-500 uppercase">{title}</p>
+        <p className="font-semibold text-gray-800">{value}</p>
       </div>
     </div>
   );
