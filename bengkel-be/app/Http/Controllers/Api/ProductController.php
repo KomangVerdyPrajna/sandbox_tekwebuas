@@ -4,56 +4,24 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
-use App\Models\Product; // Pastikan model Product diimpor
+use App\Models\Product;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\DB; // Diperlukan untuk Raw Query (pencarian)
 
 class ProductController extends Controller 
 {
-    // ======================= 1. LIST PRODUCT DENGAN PENCARIAN =======================
-    /**
-     * Menampilkan daftar produk dengan filter pencarian.
-     * Digunakan oleh Kasir dan Marketplace.
-     */
-    public function index(Request $request) 
+    // ======================= LIST PRODUCT =======================
+    public function index()
     {
-        $query = Product::query();
-
-        // Logika Pencarian (Jika parameter 'search' ada dari Next.js)
-        if ($request->has('search')) {
-            $search = strtolower($request->input('search'));
-            $searchTerm = "%{$search}%";
-
-            // Mengimplementasikan filter NULL-safe, case-insensitive, dan multi-kolom
-            $query->where(function ($q) use ($searchTerm) {
-                
-                // Cari di kolom 'name'
-                // COALESCE/IFNULL mencegah error jika nilai kolom NULL saat di-LOWER
-                $q->whereRaw('LOWER(COALESCE(name, "")) LIKE ?', [$searchTerm]);
-                
-                // Cari di kolom 'description'
-                $q->orWhereRaw('LOWER(COALESCE(description, "")) LIKE ?', [$searchTerm]);
-                
-                // Cari di kolom 'jenis_barang'
-                $q->orWhereRaw('LOWER(COALESCE(jenis_barang, "")) LIKE ?', [$searchTerm]);
-                
-                // Tambahkan pencarian berdasarkan 'slug' jika diperlukan
-                // $q->orWhereRaw('LOWER(COALESCE(slug, "")) LIKE ?', [$searchTerm]);
-            });
-        }
-        
-        $products = $query->latest()->get(); 
-        
-        // Response harus menggunakan KEY 'data' agar Next.js dapat memproses array hasil
+        $products = Product::all(); 
         return response()->json([
             'message' => 'Daftar produk berhasil diambil.',
-            'data' => $products 
+            'products' => $products
         ]);
     }
 
-    // ======================= 2. CREATE PRODUCT =======================
+    // ======================= CREATE PRODUCT =======================
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -107,7 +75,7 @@ class ProductController extends Controller
         }
     }
 
-    // ======================= 3. DETAIL PRODUCT =======================
+    // ======================= DETAIL PRODUCT =======================
     public function show($id)
     {
         $product = Product::find($id);
@@ -124,7 +92,7 @@ class ProductController extends Controller
         ]);
     }
 
-    // ======================= 4. UPDATE PRODUCT =======================
+    // ======================= UPDATE PRODUCT =======================
     public function update(Request $request, $id)
     {
         $product = Product::find($id);
@@ -185,7 +153,7 @@ class ProductController extends Controller
         }
     }
 
-    // ======================= 5. DELETE PRODUCT =======================
+    // ======================= DELETE PRODUCT =======================
     public function destroy($id)
     {
         $product = Product::find($id);
