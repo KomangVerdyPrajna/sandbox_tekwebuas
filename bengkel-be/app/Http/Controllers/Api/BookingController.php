@@ -7,19 +7,18 @@ use Illuminate\Http\Request;
 use App\Models\Booking;
 use Illuminate\Support\Facades\Validator;
 use App\Models\User;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\DB;
 
 class BookingController extends Controller
 {
-    // Daftar peran manajemen yang boleh UPDATE dan DELETE
-    private $managementRoles = ['admin', 'super_admin'];
+    // Daftar peran manajemen yang boleh UPDATE dan DELETE (TERMASUK 'kasir')
+    private $managementRoles = ['admin', 'super_admin', 'kasir'];
     
     // Daftar layanan yang diizinkan untuk validasi input
     private $allowedServices = ['Service Ringan', 'Service Berat', 'Ganti Oli', 'Perbaikan Rem', 'Tune Up'];
 
     // --- 1. READ (List Booking) ---
-    /**
-     * Mengambil daftar booking. Customer hanya melihat milik sendiri. Staf melihat semua.
-     */
     public function index(Request $request)
     {
         $user = $request->user();
@@ -27,29 +26,21 @@ class BookingController extends Controller
             return response()->json(['message' => 'Unauthorized'], 401);
         }
 
-        // Kunci: Eager load relasi 'user' untuk mendapatkan 'user_name' via Accessor
-        // Wajib menyertakan 'id' dan 'name' di with()
         $query = Booking::query();
 
         if (in_array($user->role, ['admin', 'super_admin', 'kasir'])) {
-            // Staf/Admin melihat semua
             $bookings = $query->with('user:id,name')->latest()->get(); 
         } else {
-            // Customer hanya melihat milik sendiri
             $bookings = $query->where('user_id', $user->id)->with('user:id,name')->latest()->get(); 
         }
 
         return response()->json([
             'message' => 'Daftar booking berhasil diambil.',
-            // Properti 'user_name' akan ditambahkan ke setiap objek booking
             'bookings' => $bookings
         ]);
     }
 
     // --- 2. CREATE (Simpan Booking Baru) ---
-    /**
-     * Menyimpan booking baru. Hanya diizinkan untuk Customer.
-     */
     public function store(Request $request)
     {
         $user = $request->user();
@@ -87,7 +78,6 @@ class BookingController extends Controller
             'status' => 'Pending',
         ]);
 
-        // Muat relasi user setelah disimpan untuk response (termasuk user_name)
         $booking->load('user:id,name');
 
         return response()->json([
@@ -97,9 +87,6 @@ class BookingController extends Controller
     }
 
     // --- 3. READ (Detail Booking) ---
-    /**
-     * Menampilkan detail booking. Hanya boleh diakses oleh pemilik atau staf.
-     */
     public function show(Request $request, Booking $booking)
     {
         $user = $request->user();
@@ -107,13 +94,12 @@ class BookingController extends Controller
             return response()->json(['message' => 'Unauthorized'], 401);
         }
 
-        $allowedToView = in_array($user->role, ['admin', 'super_admin', 'kasir']) || $booking->user_id === $user->id;
+        $allowedToView = in_array($user->role, $this->managementRoles) || $booking->user_id === $user->id;
 
         if (!$allowedToView) {
             return response()->json(['message' => 'Anda tidak diizinkan melihat detail booking ini.'], 403);
         }
 
-        // Muat relasi user untuk Accessor 'user_name'
         return response()->json([
             'message' => 'Detail booking berhasil diambil.',
             'booking' => $booking->load('user:id,name,email')
@@ -121,9 +107,6 @@ class BookingController extends Controller
     }
 
     // --- 4. UPDATE (Perbarui Booking) ---
-    /**
-     * Memperbarui booking. Hanya diizinkan untuk Admin dan Super Admin.
-     */
     public function update(Request $request, Booking $booking)
     {
         $user = $request->user();
@@ -133,7 +116,7 @@ class BookingController extends Controller
 
         if (!in_array($user->role, $this->managementRoles)) {
             return response()->json([
-                'message' => 'Anda tidak memiliki izin (Hanya Admin atau Super Admin) untuk memperbarui booking.'
+                'message' => 'Anda tidak memiliki izin untuk memperbarui booking.'
             ], 403);
         }
 
@@ -152,7 +135,6 @@ class BookingController extends Controller
 
         $booking->update($request->all());
 
-        // Muat relasi user setelah diperbarui untuk response (termasuk user_name)
         return response()->json([
             'message' => 'Booking berhasil diperbarui.',
             'booking' => $booking->load('user:id,name,email')
@@ -160,9 +142,6 @@ class BookingController extends Controller
     }
 
     // --- 5. DELETE (Hapus Booking) ---
-    /**
-     * Menghapus booking. Hanya diizinkan untuk Admin dan Super Admin.
-     */
     public function destroy(Request $request, Booking $booking)
     {
         $user = $request->user();
@@ -172,7 +151,7 @@ class BookingController extends Controller
 
         if (!in_array($user->role, $this->managementRoles)) {
             return response()->json([
-                'message' => 'Anda tidak memiliki izin (Hanya Admin atau Super Admin) untuk menghapus booking.'
+                'message' => 'Anda tidak memiliki izin untuk menghapus booking.'
             ], 403);
         }
 
@@ -181,5 +160,52 @@ class BookingController extends Controller
         return response()->json([
             'message' => 'Booking berhasil dihapus.'
         ], 200);
+    }
+    
+    // --- 6. READ (Pencarian Booking Pending untuk Kasir) ---
+    public function pendingForCashier(Request $request)
+    {
+        $user = $request->user();
+        if (!$user || !in_array($user->role, $this->managementRoles)) {
+            return response()->json(['message' => 'Anda tidak diizinkan mengakses data kasir.'], 403);
+        }
+
+        $query = Booking::whereIn('status', ['Pending', 'Confirmed']);
+
+        if ($request->has('search')) {
+            $search = strtolower($request->input('search'));
+            $searchTerm = "%{$search}%";
+            
+            $query->where(function ($q) use ($searchTerm) {
+                // Menggunakan whereRaw dan COALESCE untuk pencarian yang aman (NULL-safe)
+                
+                // Cari berdasarkan jenis_service
+                $q->whereRaw('LOWER(COALESCE(jenis_service, "")) LIKE ?', [$searchTerm]);
+                
+                // Cari berdasarkan no_wa
+                $q->orWhereRaw('LOWER(COALESCE(no_wa, "")) LIKE ?', [$searchTerm]);
+
+                // Cari berdasarkan nama_kendaraan
+                $q->orWhereRaw('LOWER(COALESCE(nama_kendaraan, "")) LIKE ?', [$searchTerm]);
+                
+                // Cari berdasarkan 'code'
+                if (Schema::hasColumn('bookings', 'code')) {
+                    $q->orWhereRaw('LOWER(COALESCE(code, "")) LIKE ?', [$searchTerm]);
+                }
+            });
+        }
+
+        $bookings = $query->with('user:id,name,email')->latest()->get(); 
+
+        return response()->json([
+            'message' => 'Daftar booking siap kasir berhasil diambil.',
+            'data' => $bookings // Wajib menggunakan 'data' sesuai ekspektasi Next.js
+        ]);
+    }
+
+    // --- 7. Index Admin (Jika diperlukan) ---
+    public function indexAdmin(Request $request)
+    {
+        return $this->pendingForCashier($request);
     }
 }

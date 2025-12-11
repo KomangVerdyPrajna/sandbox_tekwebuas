@@ -17,7 +17,7 @@ export default function Sidebar() {
     { name: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
     { name: "Produk", href: "/admin/produk", icon: Package },
     { name: "Booking", href: "/admin/bookingAdmin", icon: CalendarCheck },
-    { name: "Kasir", href: "/admin/kasir", icon: ShoppingCart },
+    { name: "Transaksi", href: "/admin/transaksi", icon: ShoppingCart },
     { name: "Managemet Staff", href: "/admin/manage-user", icon: User },
     { name: "Tambah Promosi", href: "/admin/promotion", icon: User },
     { name: "Promosi Produk", href: "/admin/promotionproduct", icon: User },

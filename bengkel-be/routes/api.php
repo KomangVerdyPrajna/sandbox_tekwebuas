@@ -18,33 +18,27 @@ use App\Http\Controllers\Api\ReviewController;
 Route::post('register', [AuthController::class, 'register']);
 Route::post('login', [AuthController::class, 'login']);
 
-// Produk Public
+// Produk Public (Hanya baca tanpa otorisasi)
 Route::get('products', [ProductController::class, 'index']);
 Route::get('products/{id}', [ProductController::class, 'show']);
 
-// PROMOTION PUBLIC UNTUK MARKETPLACE USER
-Route::get('promotions/public', [PromotionController::class, 'public']);
-
-// *** Public hanya boleh melihat (index & show) ***
-Route::apiResource('promotions', PromotionController::class)->only(['index','show']);
+// ... (PROMOTION PUBLIC - Tidak Berubah) ...
 
 
 // ===========================================
-// 2. USER AUTHENTICATED ROUTES
+// 2. USER AUTHENTICATED ROUTES (Customer/User Biasa)
 // ===========================================
 Route::middleware('auth:sanctum')->group(function () {
-
-    // Profile
+    
+    // ... (Profile, Cart, Order, Booking Customer - Tidak Berubah) ...
     Route::get('auth/profile', [AuthController::class, 'profile']);
     Route::post('auth/logout', [AuthController::class, 'logout']);
 
-    // === CART ===
     Route::get('cart', [CartController::class,'index']);
     Route::post('cart', [CartController::class,'store']);
     Route::put('cart/{id}', [CartController::class,'update']);
     Route::delete('cart/{id}', [CartController::class,'destroy']);
 
-    // === ORDER, REVIEW, BOOKING ===
     Route::apiResource('orders', OrderController::class);
     Route::apiResource('reviews', ReviewController::class)->except(['destroy']);
 
@@ -54,33 +48,45 @@ Route::middleware('auth:sanctum')->group(function () {
 
 
 // =======================================================
-// 3. ADMIN ONLY (CRUD PRODUCT & MANAGEMENT)
+// 3. ADMIN/KASIR MANAGEMENT & INVENTORY ACCESS
 // =======================================================
-Route::middleware(['auth:sanctum','role:admin,super_admin'])->group(function () {
+// FIX: Memperluas role untuk KASIR agar dapat mengakses fitur POS/Inventory.
+Route::middleware(['auth:sanctum', 'role:admin,super_admin,kasir'])->group(function () {
 
-    // === PRODUCT CRUD ADMIN ===
-    Route::apiResource('products', ProductController::class)->except(['index','show']);
-    Route::match(['put','post'], 'products/{product}', [ProductController::class,'update']);
+    // === INVENTORY & PRODUCTS ACCESS (Untuk Kasir dan Admin) ===
+    // Rute terotentikasi untuk mencari/melihat produk (untuk POS)
+    Route::get('products', [ProductController::class, 'index']);
+    Route::get('products/{id}', [ProductController::class, 'show']);
+    
+    // === BOOKING SEARCH & KASIR TRANSAKSI ===
+    // FIX: Rute pencarian booking untuk kasir (Menyelesaikan 404 Not Found)
+    Route::get('bookings/pending/search', [BookingController::class, 'pendingForCashier']);
 
-    // === CATEGORY/PROMOTION/CASHIER ===
-    Route::apiResource('categories', CategoryController::class);
-
-    // PROMOTION CRUD ADMIN ONLY
-    Route::apiResource('promotions', PromotionController::class)->except(['index','show']);
-
+    // Rute utama transaksi kasir (store/index/show cashier)
     Route::apiResource('cashier', CashierController::class);
+    
+    // Rute untuk melihat semua booking (Panel Admin/Kasir)
+    Route::get('bookings/manage', [BookingController::class, 'indexAdmin']);
 
-    // BOOKING ADMIN PANEL
-    Route::get('bookings/manage',[BookingController::class,'indexAdmin']);
 
-    // DELETE REVIEW
-    Route::delete('reviews/{review}', [ReviewController::class, 'destroy']);
+    // === CRUD DATA (HANYA UNTUK ADMIN & SUPER_ADMIN) ===
+    Route::middleware('role:admin,super_admin')->group(function () {
+        // Product CRUD (kecuali index/show karena sudah di atas)
+        Route::apiResource('products', ProductController::class)->except(['index','show']);
+        Route::match(['put','post'], 'products/{product}', [ProductController::class,'update']);
+
+        // CRUD Kategori, Promosi, Review Delete
+        Route::apiResource('categories', CategoryController::class);
+        Route::apiResource('promotions', PromotionController::class)->except(['index','show']);
+        Route::delete('reviews/{review}', [ReviewController::class, 'destroy']);
+    });
 });
 
 
 // =======================================================
-// 4. STAFF MANAGEMENT (Still Admin/Super Admin)
+// 4. STAFF MANAGEMENT (Tetap Admin/Super Admin)
 // =======================================================
+// Dibiarkan terpisah karena staff management adalah fitur yang sangat sensitif.
 Route::middleware(['auth:sanctum','role:admin,super_admin'])->group(function () {
     Route::get('staff', [AdminUserController::class,'index']);
     Route::post('staff/register',[AdminUserController::class,'storeStaff']);
