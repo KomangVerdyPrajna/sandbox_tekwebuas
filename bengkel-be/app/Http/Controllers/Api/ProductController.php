@@ -1,4 +1,4 @@
-<?php
+<?php 
 
 namespace App\Http\Controllers\Api;
 
@@ -7,31 +7,69 @@ use Illuminate\Http\Request;
 use App\Models\Product;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\File; // <-- tambahan untuk file ops
 
 class ProductController extends Controller
 {
     // ================================================================
     // GET ALL PRODUCTS (DIURUTKAN TERBARU DULU)
     // ================================================================
-    public function index()
-    {
-        // 💡 PERBAIKAN: Gunakan latest() untuk mengurutkan berdasarkan created_at secara descending (Terbaru Dulu)
-        $products = Product::latest()->get()->map(function ($p) {
-            return [
-                'id' => $p->id,
-                'name' => $p->name,
-                'slug' => $p->slug,
-                'description' => $p->description,
-                'price' => $p->price,
-                'stock' => $p->stock,
-                'jenis_barang' => $p->jenis_barang,
-                // Menggunakan Accessor image_urls untuk mendapatkan array URL
-                'img_urls' => $p->image_urls, 
-            ];
-        });
+   public function index()
+{
+    // gunakan APP_URL jika di-set, fallback ke url('/') yang di-generate Laravel
+  $base = "http://localhost:8000"; // FORCE biar sesuai server kamu
 
-        return response()->json(['products' => $products], 200);
-    }
+
+    $products = Product::latest()->get()->map(function ($p) use ($base) {
+        // ambil nilai asli dari kolom img_url (bisa berupa JSON array atau string)
+        $raw = $p->getRawOriginal('img_url') ?? '[]';
+        $names = json_decode($raw, true) ?? [];
+
+        // jika stored as single string (legacy), ubah jadi array
+        if (!is_array($names) && is_string($raw) && !\Illuminate\Support\Str::startsWith($raw, '[')) {
+            $names = [$raw];
+        }
+
+        // bangun URL penuh untuk tiap nama file
+        $urls = array_map(function ($name) use ($base) {
+            if (empty($name)) return null;
+
+            // jika sudah URL absolut, kembalikan apa adanya
+            if (strpos($name, 'http://') === 0 || strpos($name, 'https://') === 0) {
+                return $name;
+            }
+
+            $clean = ltrim($name, '/');
+
+            // jika sudah mengandung folder images/ atau storage/, gunakan apa adanya relatif ke base
+            if (strpos($clean, 'images/') === 0) {
+                return $base . '/' . $clean;
+            }
+            if (strpos($clean, 'storage/') === 0) {
+                return $base . '/' . $clean;
+            }
+
+            // default: anggap nama file berada di public/images
+            return $base . '/images/' . $clean;
+        }, $names);
+
+        // filter hasil kosong/null
+        $urls = array_values(array_filter($urls));
+
+        return [
+            'id' => $p->id,
+            'name' => $p->name,
+            'slug' => $p->slug,
+            'description' => $p->description,
+            'price' => $p->price,
+            'stock' => $p->stock,
+            'jenis_barang' => $p->jenis_barang,
+            'img_urls' => $urls,
+        ];
+    });
+
+    return response()->json(['products' => $products], 200);
+}
 
     // ================================================================
     // SHOW DETAIL PRODUCT
@@ -77,12 +115,18 @@ class ProductController extends Controller
             $files = $request->file('images'); 
             
             if (is_array($files)) {
+                // pastikan folder public/images ada
+                $publicImagesPath = public_path('images');
+                if (!is_dir($publicImagesPath)) {
+                    mkdir($publicImagesPath, 0755, true);
+                }
+
                 foreach ($files as $img) {
                     // 💡 Memastikan file valid sebelum disimpan
                     if ($img && $img->isValid()) { 
                         $filename = time() . '_' . uniqid() . '.' . $img->getClientOriginalExtension();
-                        // Simpan ke storage/app/public/products
-                        $img->storeAs('public/products', $filename);
+                        // Pindahkan ke public/images (bukan storage)
+                        $img->move($publicImagesPath, $filename);
                         $imageNames[] = $filename; // Tambahkan ke array
                     }
                 }
@@ -139,20 +183,29 @@ class ProductController extends Controller
         if ($request->hasFile('images')) {
             $files = $request->file('images');
             
-            // Hapus gambar lama dari storage
+            // Hapus gambar lama dari public/images
+            $publicImagesPath = public_path('images');
             foreach ($imageNamesToDelete as $img) {
                 if (is_string($img) && !empty($img)) {
-                    Storage::delete('public/products/' . $img);
+                    $filePath = $publicImagesPath . DIRECTORY_SEPARATOR . $img;
+                    if (File::exists($filePath)) {
+                        File::delete($filePath);
+                    }
                 }
             }
             
             // Upload gambar baru
             $imageNamesToSave = []; 
             if (is_array($files)) {
+                // pastikan folder public/images ada
+                if (!is_dir($publicImagesPath)) {
+                    mkdir($publicImagesPath, 0755, true);
+                }
+
                 foreach ($files as $img) {
                     if ($img && $img->isValid()) {
                         $filename = time() . '_' . uniqid() . '.' . $img->getClientOriginalExtension();
-                        $img->storeAs('public/products', $filename);
+                        $img->move($publicImagesPath, $filename);
                         $imageNamesToSave[] = $filename;
                     }
                 }
@@ -195,11 +248,15 @@ class ProductController extends Controller
              $imageNames = [$currentRawJson];
         }
         
-        // Hapus semua file gambar di storage
+        // Hapus semua file gambar di public/images
         if (!empty($imageNames)) {
+            $publicImagesPath = public_path('images');
             foreach ($imageNames as $img) {
                 if (is_string($img) && !empty($img)) {
-                    Storage::delete('public/products/' . $img);
+                    $filePath = $publicImagesPath . DIRECTORY_SEPARATOR . $img;
+                    if (File::exists($filePath)) {
+                        File::delete($filePath);
+                    }
                 }
             }
         }

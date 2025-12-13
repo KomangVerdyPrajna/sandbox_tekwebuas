@@ -22,6 +22,5 @@ return [
 
     'max_age' => 0,
 
-    // Jika butuh cookies/token gunakan true
     'supports_credentials' => true,
 ];

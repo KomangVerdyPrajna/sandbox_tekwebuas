@@ -56,8 +56,7 @@ Route::middleware(['auth:sanctum', 'role:admin,super_admin,kasir'])->group(funct
     // NOTE: jangan daftarkan GET index/show lagi di sini — biarkan publik atau di-protect oleh auth saja.
     // Hanya daftarkan CRUD yang memerlukan otorisasi:
     Route::apiResource('products', ProductController::class)->except(['index','show']);
-    Route::match(['put','post'], 'products/{product}', [ProductController::class,'update']);
-
+   
     // === BOOKING SEARCH & KASIR TRANSAKSI ===
     Route::get('bookings/pending/search', [BookingController::class, 'pendingForCashier']);
     Route::apiResource('cashier', CashierController::class);
@@ -82,3 +81,5 @@ Route::middleware(['auth:sanctum','role:admin,super_admin'])->group(function () 
     Route::put('staff/{id}',[AdminUserController::class,'update']);
     Route::delete('staff/{id}',[AdminUserController::class,'destroy']);
 });
+
+

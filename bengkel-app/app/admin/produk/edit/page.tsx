@@ -5,6 +5,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 
 const DEFAULT_IMAGE_URL = "/no-image.png";
+// sesuaikan base URL backend-mu (pakai 127.0.0.1:8000 atau localhost:8000 tergantung server)
+const BACKEND_BASE = "http://localhost:8000";
 
 interface Product {
   id: number;
@@ -24,6 +26,33 @@ function getCookie(name: string): string | null {
   const parts = value.split(`; ${name}=`);
   if (parts.length === 2) return parts.pop()?.split(";").shift() || null;
   return null;
+}
+
+// helper: bangun URL penuh untuk image yang berada di backend/public/images
+function buildImageUrl(pathOrUrl?: string | null) {
+  if (!pathOrUrl) return DEFAULT_IMAGE_URL;
+
+  // kalau backend sudah mengirim URL lengkap, pakai langsung
+  if (pathOrUrl.startsWith("http://") || pathOrUrl.startsWith("https://")) {
+    return pathOrUrl;
+  }
+
+  // bersihkan leading slashes
+  const cleaned = pathOrUrl.replace(/^\/+/, "");
+
+  // jika path sudah mengandung "storage/" (legacy), map ke storage path on backend
+  if (cleaned.startsWith("storage/")) {
+    const after = cleaned.replace(/^storage\/+/, "");
+    return `${BACKEND_BASE}/storage/${after}`;
+  }
+
+  // jika path sudah mengandung "images/" (public/images), gunakan langsung
+  if (cleaned.startsWith("images/")) {
+    return `${BACKEND_BASE}/${cleaned}`;
+  }
+
+  // jika hanya filename (mis. "1765...jpg"), asumsikan berada di public/images
+  return `${BACKEND_BASE}/images/${cleaned}`;
 }
 
 export default function EditProductPage() {
@@ -54,9 +83,12 @@ export default function EditProductPage() {
 
     async function fetchProduct() {
       try {
-        const res = await fetch(`http://localhost:8000/api/products/${productId}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const res = await fetch(
+          `http://localhost:8000/api/products/${productId}`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
 
         if (!res.ok) {
           alert(`Gagal memuat produk. Status: ${res.status}`);
@@ -68,9 +100,10 @@ export default function EditProductPage() {
         const prod: Product = data.product;
 
         setProduct(prod);
-        const urls = prod.img_url || [DEFAULT_IMAGE_URL];
+        const urls = prod.img_url || [];
         setExistingImageUrls(urls);
-        setPreviewUrl(urls[0] ?? DEFAULT_IMAGE_URL);
+        // preview: jika backend simpan hanya filename, build url; kalau sudah url, pakai langsung
+        setPreviewUrl(buildImageUrl(urls[0] ?? null));
       } catch (err) {
         console.error(err);
         alert("Tidak dapat terhubung ke server.");
@@ -87,7 +120,9 @@ export default function EditProductPage() {
   }, [newImageFiles]);
 
   const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+    >
   ) => {
     if (!product) return;
     const name = e.target.name;
@@ -114,11 +149,13 @@ export default function EditProductPage() {
       });
 
       setNewImageFiles(filesArray);
+      // preview dari file baru (blob)
       setPreviewUrl(URL.createObjectURL(filesArray[0]));
     } else {
       if (previewUrl.startsWith("blob:")) URL.revokeObjectURL(previewUrl);
       setNewImageFiles([]);
-      setPreviewUrl(existingImageUrls[0] ?? DEFAULT_IMAGE_URL);
+      // fallback ke gambar existing (bangun URL penuh)
+      setPreviewUrl(buildImageUrl(existingImageUrls[0] ?? null));
     }
   };
 
@@ -151,13 +188,25 @@ export default function EditProductPage() {
     }
 
     try {
-      const res = await fetch(`http://localhost:8000/api/products/${product.id}`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-        body: form,
-      });
+      const res = await fetch(
+        `http://localhost:8000/api/products/${product.id}`,
+        {
+          method: "POST",
+          headers: {
+            Accept: "application/json", // <-- penting: minta JSON agar backend tidak redirect HTML
+            Authorization: `Bearer ${token}`,
+          },
+          body: form,
+        }
+      );
 
-      const data = await res.json();
+      // Defensive parsing: jika server balas non-json, jangan crash
+      let data: any = {};
+      try {
+        data = await res.json();
+      } catch (parseErr) {
+        data = {};
+      }
 
       if (!res.ok) {
         const errMsg =
@@ -181,8 +230,12 @@ export default function EditProductPage() {
     }
   };
 
-  if (loading) return <p className="text-center mt-10">Memuat data produk...</p>;
-  if (!product) return <p className="text-center mt-10 text-red-500">Produk tidak ditemukan.</p>;
+  if (loading)
+    return <p className="text-center mt-10">Memuat data produk...</p>;
+  if (!product)
+    return (
+      <p className="text-center mt-10 text-red-500">Produk tidak ditemukan.</p>
+    );
 
   return (
     <div className="max-w-2xl mx-auto p-5 bg-white shadow-lg rounded-xl mt-6">
@@ -193,7 +246,9 @@ export default function EditProductPage() {
       <form onSubmit={updateProduct} className="space-y-3">
         {/* Nama */}
         <div>
-          <label className="block text-sm font-medium text-gray-700">Nama Produk</label>
+          <label className="block text-sm font-medium text-gray-700">
+            Nama Produk
+          </label>
           <input
             name="name"
             value={product?.name ?? ""}
@@ -205,7 +260,9 @@ export default function EditProductPage() {
 
         {/* Harga */}
         <div>
-          <label className="block text-sm font-medium text-gray-700">Harga</label>
+          <label className="block text-sm font-medium text-gray-700">
+            Harga
+          </label>
           <input
             name="price"
             type="number"
@@ -219,7 +276,9 @@ export default function EditProductPage() {
 
         {/* Stok */}
         <div>
-          <label className="block text-sm font-medium text-gray-700">Stok</label>
+          <label className="block text-sm font-medium text-gray-700">
+            Stok
+          </label>
           <input
             name="stock"
             type="number"
@@ -232,7 +291,9 @@ export default function EditProductPage() {
 
         {/* Jenis */}
         <div>
-          <label className="block text-sm font-medium text-gray-700">Jenis Barang</label>
+          <label className="block text-sm font-medium text-gray-700">
+            Jenis Barang
+          </label>
           <select
             name="jenis_barang"
             value={product?.jenis_barang ?? ""}
@@ -253,7 +314,9 @@ export default function EditProductPage() {
 
         {/* Deskripsi */}
         <div>
-          <label className="block text-sm font-medium text-gray-700">Deskripsi</label>
+          <label className="block text-sm font-medium text-gray-700">
+            Deskripsi
+          </label>
           <textarea
             name="description"
             value={product?.description ?? ""}
@@ -270,12 +333,14 @@ export default function EditProductPage() {
             alt="Preview Produk"
             width={100}
             height={100}
-            className="rounded-lg shadow-md object-cover shrink-0"
             unoptimized
+            style={{ borderRadius: 8, objectFit: "cover" }}
           />
 
           <div className="grow">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Ganti Gambar</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Ganti Gambar
+            </label>
             <input
               type="file"
               name="images"
@@ -285,7 +350,8 @@ export default function EditProductPage() {
               className="w-full text-sm text-gray-500"
             />
             <p className="text-xs text-gray-500 mt-1">
-              Biarkan kosong jika tidak ingin mengganti gambar. Anda dapat memilih banyak file.
+              Biarkan kosong jika tidak ingin mengganti gambar. Anda dapat
+              memilih banyak file.
             </p>
           </div>
         </div>
