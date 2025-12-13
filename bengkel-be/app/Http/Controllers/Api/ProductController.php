@@ -225,6 +225,36 @@ class ProductController extends Controller
             'message' => 'Produk berhasil dihapus'
         ]);
     }
-    
-    // ... (Fungsi lain seperti searchForCashier)
+
+    // ================================================================
+    // SEARCH FOR CASHIER
+    // ================================================================
+    public function searchForCashier(Request $request)
+    {
+        $keyword = $request->input('q');
+
+        if (empty($keyword)) {
+            return response()->json(['products' => []], 200);
+        }
+
+        $products = Product::where('name', 'LIKE', "%{$keyword}%")
+                           ->orWhere('slug', 'LIKE', "%{$keyword}%")
+                           ->orWhere('description', 'LIKE', "%{$keyword}%")
+                           ->limit(10) // Batasi hasil pencarian
+                           ->get()
+                           ->map(function ($p) {
+                               // Map hasilnya agar ringan dan mudah digunakan di kasir
+                               return [
+                                   'id' => $p->id,
+                                   'name' => $p->name,
+                                   'price' => $p->price,
+                                   'stock' => $p->stock,
+                                   'jenis_barang' => $p->jenis_barang,
+                                   // Ambil URL gambar pertama saja (untuk preview cepat)
+                                   'img_url_first' => $p->image_urls[0] ?? null,
+                               ];
+                           });
+
+        return response()->json(['products' => $products], 200);
+    }
 }

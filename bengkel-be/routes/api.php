@@ -21,11 +21,9 @@ Route::post('login', [AuthController::class, 'login']);
 // Produk Public (Hanya baca tanpa otorisasi)
 Route::get('products', [ProductController::class, 'index']);
 Route::get('products/{id}', [ProductController::class, 'show']);
-Route::get('kasir/products/search', [ProductController::class, 'searchForCashier']); // jika ingin akses kasir tanpa auth (sesuaikan)
 
 // PROMOTIONS: kalau frontend butuh daftar promos, buka endpoint GET publik
-Route::get('promotions', [PromotionController::class, 'index']); // <-- tambahkan jika diperlukan oleh frontend
-// NOTE: actions untuk membuat/ubah/hapus tetap di-protect di admin group
+Route::get('promotions', [PromotionController::class, 'index']); // <-- OK
 
 // ===========================================
 // 2. USER AUTHENTICATED ROUTES (Customer/User Biasa)
@@ -52,11 +50,14 @@ Route::middleware('auth:sanctum')->group(function () {
 // =======================================================
 Route::middleware(['auth:sanctum', 'role:admin,super_admin,kasir'])->group(function () {
 
-    // === INVENTORY & PRODUCTS ACCESS (Untuk Kasir dan Admin) ===
-    // NOTE: jangan daftarkan GET index/show lagi di sini — biarkan publik atau di-protect oleh auth saja.
-    // Hanya daftarkan CRUD yang memerlukan otorisasi:
+    // === INVENTORY & PRODUCTS ACCESS (Untuk Admin) ===
+    // NOTE: Index dan Show produk sudah di atas (publik)
     Route::apiResource('products', ProductController::class)->except(['index','show']);
-   
+    
+    // 🔥 PENCARIAN PRODUK UNTUK KASIR (Memerlukan otorisasi kasir)
+    // Route ini berada di dalam middleware group admin/kasir, jadi otorisasi sudah terjamin.
+    Route::get('products/search/cashier', [ProductController::class, 'searchForCashier']);
+    
     // === BOOKING SEARCH & KASIR TRANSAKSI ===
     Route::get('bookings/pending/search', [BookingController::class, 'pendingForCashier']);
     Route::apiResource('cashier', CashierController::class);
@@ -81,5 +82,3 @@ Route::middleware(['auth:sanctum','role:admin,super_admin'])->group(function () 
     Route::put('staff/{id}',[AdminUserController::class,'update']);
     Route::delete('staff/{id}',[AdminUserController::class,'destroy']);
 });
-
-

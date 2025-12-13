@@ -2,7 +2,7 @@
 'use client'; 
 
 import React, { useState, useMemo, useEffect, FormEvent } from 'react'; 
-import { useRef } from 'react'; 
+import { Trash2 } from 'lucide-react'; 
 
 // --- Tipe Data (Interface) ---
 interface CartItem {
@@ -14,7 +14,16 @@ interface CartItem {
     originalId: number | null; 
 }
 
-interface Product { id: number; name: string; price: number; type: 'product' | 'service'; }
+interface Product { 
+    id: number; 
+    name: string; 
+    price: number; 
+    stock: number; // Ditambahkan untuk kasir
+    jenis_barang: string; // Ditambahkan untuk kasir
+    // Type 'product' atau 'service' harusnya dari backend, tapi kita asumsikan 'product' dari endpoint produk
+    type?: 'product' | 'service'; 
+}
+
 interface Booking { 
     id: number; 
     code: string; 
@@ -52,7 +61,7 @@ const getTokenFromCookies = (): string | undefined => {
 // ---------------------------------------------------------------------------------------
 
 
-// --- Komponen Pembantu 1: Service Input ---
+// --- Komponen Pembantu 1: Service Input (Jasa Manual) ---
 const ServiceInput: React.FC<{ onAddItem: (item: CartItem) => void }> = ({ onAddItem }) => {
     const [name, setName] = useState('');
     const [price, setPrice] = useState('');
@@ -63,7 +72,7 @@ const ServiceInput: React.FC<{ onAddItem: (item: CartItem) => void }> = ({ onAdd
             onAddItem({
                 id: `manual-${Date.now().toString()}`,
                 type: 'service_manual',
-                name,
+                name: `Jasa: ${name}`, // Tambahkan prefix untuk kejelasan
                 price: parseFloat(price),
                 quantity: 1,
                 originalId: null,
@@ -78,7 +87,7 @@ const ServiceInput: React.FC<{ onAddItem: (item: CartItem) => void }> = ({ onAdd
             <h4 className="font-semibold mb-2 text-yellow-800">Tambah Layanan Manual (Jasa)</h4>
             <input
                 type="text"
-                placeholder="Nama Layanan"
+                placeholder="Nama Layanan (e.g., Tambal Ban)"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 className="border p-2 w-full mb-2 rounded"
@@ -92,7 +101,7 @@ const ServiceInput: React.FC<{ onAddItem: (item: CartItem) => void }> = ({ onAdd
                 className="border p-2 w-full mb-3 rounded"
                 required
             />
-            <button type="submit" className="bg-yellow-600 text-white p-2 rounded w-full hover:bg-yellow-700">
+            <button type="submit" className="bg-yellow-600 text-white p-2 rounded w-full hover:bg-yellow-700 disabled:opacity-50">
                 Tambah Jasa
             </button>
         </form>
@@ -118,36 +127,24 @@ const ItemSearchInput: React.FC<{ onSelect: (item: CartItem) => void }> = ({ onS
         
         try {
             const [productsRes, bookingsRes] = await Promise.all([
-                // Menggunakan endpoint /kasir/products/search yang lebih unik
-                fetch(`${API_URL}/kasir/products/search?search=${query}`, { headers: { 'Authorization': `Bearer ${token}` } }),
+                // 🔥 PERBAIKAN: Menggunakan endpoint dan query parameter yang benar
+                fetch(`${API_URL}/products/search/cashier?q=${query}`, { 
+                    headers: { 'Authorization': `Bearer ${token}` } 
+                }),
                 
-                fetch(`${API_URL}/bookings/pending/search?search=${query}`, { headers: { 'Authorization': `Bearer ${token}` } })
+                // Asumsi Booking endpoint menggunakan 'q' juga
+                fetch(`${API_URL}/bookings/pending/search?q=${query}`, { 
+                    headers: { 'Authorization': `Bearer ${token}` } 
+                })
             ]);
 
-            const productsData: Product[] = productsRes.ok ? (await productsRes.json()).data || [] : [];
+            // Asumsi ProductController mengembalikan kunci 'products'
+            const productsData: Product[] = productsRes.ok ? (await productsRes.json()).products || [] : [];
+            // Asumsi BookingController mengembalikan kunci 'data'
             const bookingsData: Booking[] = bookingsRes.ok ? (await bookingsRes.json()).data || [] : [];
-
+            
             const allItems = [...productsData, ...bookingsData];
-            
-            const filtered = allItems.filter(item => {
-                const queryLower = query.toLowerCase();
-                
-                if (isBooking(item)) {
-                    // Item adalah Booking.
-                    const codeMatch = (item.code ?? '').toLowerCase().includes(queryLower);
-                    const serviceMatch = (item.jenis_service ?? '').toLowerCase().includes(queryLower);
-                    const waMatch = (item.no_wa ?? '').toLowerCase().includes(queryLower);
-                    const kendaraanMatch = (item.nama_kendaraan ?? '').toLowerCase().includes(queryLower);
-                    
-                    return codeMatch || serviceMatch || waMatch || kendaraanMatch;
-                } else {
-                    // Item adalah Product.
-                    const nameMatch = (item.name ?? '').toLowerCase().includes(queryLower);
-                    return nameMatch;
-                }
-            });
-            
-            setSearchResults(filtered);
+            setSearchResults(allItems);
 
         } catch (error) {
             console.error("Gagal mengambil data pencarian:", error);
@@ -158,14 +155,19 @@ const ItemSearchInput: React.FC<{ onSelect: (item: CartItem) => void }> = ({ onS
     };
 
     useEffect(() => {
-        fetchItems(searchTerm);
+        // Debounce sederhana (panggilan fetch akan terjadi setiap kali searchTerm berubah)
+        const timeoutId = setTimeout(() => {
+            fetchItems(searchTerm);
+        }, 300); // Tunggu 300ms setelah user berhenti mengetik
+        
+        return () => clearTimeout(timeoutId); // Cleanup timeout sebelumnya
     }, [searchTerm]);
 
     const handleItemClick = (item: Product | Booking) => {
         let cartItem: CartItem;
 
         if (isBooking(item)) { 
-            const identifier = item.no_wa || item.nama_kendaraan || `ID User: ${item.user_id}`;
+            const identifier = item.no_wa || item.nama_kendaraan || `ID Booking: ${item.id}`;
             
             cartItem = {
                 id: `booking-${item.id}`,
@@ -177,9 +179,10 @@ const ItemSearchInput: React.FC<{ onSelect: (item: CartItem) => void }> = ({ onS
             };
         } else { 
             const productItem = item as Product;
+            
             cartItem = {
                 id: `prod-${productItem.id}`,
-                type: productItem.type === 'service' ? 'service_manual' : 'product',
+                type: 'product', // Default ke product
                 name: productItem.name,
                 price: productItem.price,
                 quantity: 1,
@@ -191,6 +194,8 @@ const ItemSearchInput: React.FC<{ onSelect: (item: CartItem) => void }> = ({ onS
         setSearchResults([]);
     };
 
+    const displayResults = searchResults.length > 0;
+
     return (
         <div className="relative">
             <input
@@ -201,10 +206,10 @@ const ItemSearchInput: React.FC<{ onSelect: (item: CartItem) => void }> = ({ onS
                 className="border p-3 w-full rounded-lg focus:ring-blue-500 focus:border-blue-500 transition shadow-sm"
             />
             
-            {searchTerm && (searchResults.length > 0 || isLoading) && (
+            {searchTerm && (displayResults || isLoading) && (
                 <div className="absolute z-20 w-full bg-white border border-gray-300 rounded-lg mt-1 max-h-60 overflow-y-auto shadow-xl">
                     {isLoading && <p className="p-3 text-center text-gray-500">Memuat...</p>}
-                    {!isLoading && searchResults.map((item) => {
+                    {!isLoading && displayResults && searchResults.map((item) => {
                         
                         if (isBooking(item)) {
                             const identifier = item.no_wa || item.nama_kendaraan || `ID User: ${item.user_id}`;
@@ -236,7 +241,7 @@ const ItemSearchInput: React.FC<{ onSelect: (item: CartItem) => void }> = ({ onS
                                         {p.name} 
                                     </p>
                                     <p className="text-xs text-gray-500">
-                                        Harga: Rp {p.price.toLocaleString('id-ID')}
+                                        Harga: Rp {p.price.toLocaleString('id-ID')} | Stok: {p.stock} | {p.jenis_barang}
                                     </p>
                                 </div>
                             );
@@ -244,7 +249,7 @@ const ItemSearchInput: React.FC<{ onSelect: (item: CartItem) => void }> = ({ onS
                     })}
                 </div>
             )}
-            {searchTerm && !isLoading && searchResults.length === 0 && (
+            {searchTerm && !isLoading && !displayResults && (
                 <div className="absolute z-20 w-full bg-white border border-gray-300 rounded-lg mt-1 shadow-xl p-3 text-center text-gray-500">
                     Tidak Ditemukan.
                 </div>
@@ -257,7 +262,6 @@ const ItemSearchInput: React.FC<{ onSelect: (item: CartItem) => void }> = ({ onS
 // --- Halaman Utama Kasir ---
 
 const CashierPage: React.FC = () => {
-    // FIX Error 2304/7006: Menambahkan tipe CartItem[] ke useState
     const [cartItems, setCartItems] = useState<CartItem[]>([]);
     const [paymentMethod, setPaymentMethod] = useState<'Cash' | 'Card' | 'Transfer'>('Cash');
     const [isProcessing, setIsProcessing] = useState(false);
@@ -269,16 +273,17 @@ const CashierPage: React.FC = () => {
     
     // FIX Error 7006: Parameter item harus CartItem
     const handleAddItem = (item: CartItem) => {
+        // Jika item adalah produk atau booking, cek apakah sudah ada.
         const existingItemIndex = cartItems.findIndex((i: CartItem) => 
-            i.originalId === item.originalId && i.type !== 'service_manual' && i.type !== 'booking_pelunasan'
+            i.originalId === item.originalId && i.type === item.type && i.type !== 'service_manual'
         );
 
-        if (existingItemIndex > -1) {
+        if (existingItemIndex > -1 && item.type === 'product') { // Hanya produk yang bisa ditambah qty-nya
             const updatedCart = [...cartItems];
             updatedCart[existingItemIndex].quantity += 1;
             setCartItems(updatedCart);
         } else {
-            // FIX Error 7006: Menambahkan tipe prev
+            // Untuk Booking dan Jasa Manual, selalu tambahkan sebagai item baru (atau cek ID unik)
             setCartItems((prev: CartItem[]) => [...prev, item]);
         }
     };
@@ -288,7 +293,7 @@ const CashierPage: React.FC = () => {
         setCartItems((prev: CartItem[]) => prev.filter((item: CartItem) => item.id !== id));
     };
 
-    // Fungsi Cetak Struk (Dengan pemanggilan di handleProcessTransaction)
+    // Fungsi Cetak Struk
     const printReceipt = (transactionDetail: any) => {
         const finalTotal = transactionDetail.total; 
         const items = transactionDetail.items || cartItems;
@@ -323,7 +328,7 @@ const CashierPage: React.FC = () => {
         }
     };
 
-    // Logika handleProcessTransaction (Integrasi Token)
+    // Logika handleProcessTransaction (Integrasi Multi-Item)
     const handleProcessTransaction = async () => {
         if (cartItems.length === 0) {
             alert('Keranjang kosong. Tambahkan item terlebih dahulu.');
@@ -332,35 +337,39 @@ const CashierPage: React.FC = () => {
 
         setIsProcessing(true);
         
-        // --- PENYESUAIAN DATA UNTUK CONTROLLER LARAVEL LAMA (product_id/booking_id tunggal) ---
-        const primaryItem = cartItems[0] || null;
-        let productId = null;
-        let bookingId = null;
+        // --- DATA YANG DIKIRIM KE LARAVEL (Multi-Item Transaksi) ---
+        const itemsPayload = cartItems.map(item => {
+            let productId = null;
+            let bookingId = null;
 
-        if (primaryItem && primaryItem.originalId !== null) {
-            if (primaryItem.type === 'product' || primaryItem.type === 'service_manual') {
-                productId = primaryItem.originalId; 
-            } else if (primaryItem.type === 'booking_pelunasan') {
-                bookingId = primaryItem.originalId;
+            if (item.type === 'product' || item.type === 'service_manual') {
+                // Di Laravel, kita asumsikan produk/sparepart/jasa manual yang ada di database menggunakan product_id
+                productId = item.originalId; 
+            } else if (item.type === 'booking_pelunasan') {
+                bookingId = item.originalId;
             }
-        }
+
+            return {
+                original_id: item.originalId,
+                type: item.type,
+                name: item.name,
+                price: item.price,
+                quantity: item.quantity,
+                product_id: productId, // FK ke tabel products (jika ada)
+                booking_id: bookingId, // FK ke tabel bookings (jika ada)
+            };
+        });
         
-        // Format tanggal yang diharapkan Laravel (YYYY-MM-DD HH:MM:SS)
         const formattedDate = new Date().toISOString().replace('T', ' ').substring(0, 19);
 
-        // Data yang dikirim ke API (HANYA MENGIRIM SATU SET FK + KOLOM WAJIB)
         const transactionData = {
             'total': total,
             'payment_method': paymentMethod,
-            'transaction_date': formattedDate, // FIX: Menambahkan transaction_date
-            'is_valid': 1, // FIX: Menambahkan is_valid (untuk required_without_all)
-            
-            'product_id': productId,
-            'booking_id': bookingId,
-            
-            // CATATAN: Array 'items' tidak dikirim karena Controller Laravel yang Anda miliki tidak dirancang untuknya.
+            'transaction_date': formattedDate, 
+            'is_valid': 1, 
+            'items': itemsPayload, // Mengirim array item lengkap!
         };
-        // --- AKHIR PENYESUAIAN ---
+        // --- AKHIR DATA PAYLOAD ---
 
         
         const API_URL = process.env.NEXT_PUBLIC_LARAVEL_API_URL || 'http://localhost:8000/api'; 
@@ -385,13 +394,11 @@ const CashierPage: React.FC = () => {
             if (!response.ok) {
                 const errorResult = await response.json();
                 
-                // Menangani detail validasi 422
                 if (response.status === 422 && errorResult.errors) {
                     const validationMessages = Object.values(errorResult.errors).flat().join('; ');
                     throw new Error(`Validasi Gagal: ${validationMessages}`);
                 }
                 
-                // Menangani error otorisasi/server
                 if (response.status === 401 || response.status === 403) {
                     throw new Error("Akses ditolak. Token tidak valid atau kedaluwarsa.");
                 }
@@ -409,7 +416,6 @@ const CashierPage: React.FC = () => {
                 total: total,
                 payment_method: paymentMethod 
             }); 
-            // ------------------------------------------
 
             setCartItems([]);
             setPaymentMethod('Cash');
@@ -424,7 +430,7 @@ const CashierPage: React.FC = () => {
 
 
     return (
-        <div className="flex space-x-6 h-full">
+        <div className="flex space-x-6 h-full p-6 bg-gray-50">
             
             {/* KOLOM KIRI: INPUT DAN KERANJANG */}
             <div className="w-2/3 space-y-6 flex flex-col">
@@ -474,7 +480,7 @@ const CashierPage: React.FC = () => {
                                             onClick={() => handleRemoveItem(item.id)}
                                             className="text-red-500 hover:text-red-700 font-medium text-xs"
                                         >
-                                            [X]
+                                            <Trash2 size={18}/>
                                         </button>
                                     </td>
                                 </tr>
@@ -490,7 +496,7 @@ const CashierPage: React.FC = () => {
             </div>
 
             {/* KOLOM KANAN: RINGKASAN & PEMBAYARAN */}
-            <div className="w-1/3 p-6 bg-white rounded-xl shadow-2xl h-min sticky top-4 self-start">
+            <div className="w-1/3 p-6 bg-white rounded-xl shadow-2xl h-min sticky top-6 self-start">
                 <h2 className="text-2xl font-bold mb-4 text-indigo-700 border-b pb-2">Checkout</h2>
                 
                 {/* Total Pembayaran */}
