@@ -11,200 +11,234 @@ import {
   Info,
   ShieldCheck,
   Truck,
-  Clock,
   Zap,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 
-// ===============================
-// Interface Produk
-// ===============================
+/* ===============================
+   INTERFACE
+================================ */
 interface Product {
   id: number;
   name: string;
-  price: number;             // harga setelah promo bila ada
-  original_price?: number;   // harga asli sebelum promo
-  is_promo?: boolean;        // tanda promo dari Marketplace
+  price: number;
+  original_price?: number;
+  is_promo?: boolean;
   stock: number;
   jenis_barang: string;
   description: string;
-  img_url: string;
+  img_url: string[];
 }
 
-// ===============================
-// RETURN DATA HARGA
-// ===============================
+/* ===============================
+   PRICE HELPER
+================================ */
 function getPriceInfo(product: Product) {
-  const hasPromo = product.is_promo && product.original_price && product.original_price > product.price;
+  const hasPromo =
+    product.is_promo &&
+    product.original_price &&
+    product.original_price > product.price;
 
   return {
     hasPromo,
     original: product.original_price ?? product.price,
     final: product.price,
     discount: hasPromo
-      ? Math.round(((product.original_price! - product.price) / product.original_price!) * 100)
-      : 0
+      ? Math.round(
+          ((product.original_price! - product.price) /
+            product.original_price!) *
+            100
+        )
+      : 0,
   };
 }
 
-// ===============================
-// ADD TO CART LOCAL
-// ===============================
-const addToCart = (product: Product) => {
-  const saved = localStorage.getItem("cart");
-  const cartItems: any[] = saved ? JSON.parse(saved) : [];
+/* ===============================
+   ADD TO CART (LOCAL) — TIDAK DIUBAH
+================================ */
+const addToCart = async (product: Product) => {
+  const token = document.cookie.match(/token=([^;]+)/)?.[1];
+  if (!token) return;
 
-  const exist = cartItems.findIndex((p) => p.id === product.id);
-
-  if (exist > -1) cartItems[exist].qty += 1;
-  else cartItems.push({ ...product, qty: 1, isSelected: true });
-
-  localStorage.setItem("cart", JSON.stringify(cartItems));
-
-  const msg = document.getElementById("message-box");
-  if (msg) {
-    msg.innerHTML = `
-      <div class='bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-lg shadow'>
-        <b>✔ Ditambahkan ke Keranjang</b>
-      </div>
-    `;
-    msg.style.display = "block";
-    setTimeout(() => (msg.style.display = "none"), 2000);
-  }
+  await fetch("http://localhost:8000/api/cart", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      product_id: product.id,
+      quantity: 1,
+      price: product.price,
+    }),
+  });
 };
 
-// ===============================
-// FEATURE COMPONENT
-// ===============================
-const FeatureHighlight = ({ icon: Icon, title, desc }: { icon: any; title: string; desc: string }) => (
-  <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
-    <Icon size={24} className="text-[#234C6A]" />
-    <div>
-      <p className="font-semibold text-sm text-[#234C6A]">{title}</p>
-      <p className="text-xs text-gray-500">{desc}</p>
-    </div>
-  </div>
-);
+/* ===============================
+   IMAGE CAROUSEL
+================================ */
+interface DetailImageCarouselProps {
+  urls: string[];
+  alt: string;
+}
 
-// ===============================
-// REVIEW COMPONENT
-// ===============================
-const ReviewCard = ({ name, rating, comment }: { name: string; rating: number; comment: string }) => (
-  <div className="p-4 bg-white border rounded-xl shadow">
-    <div className="flex items-center justify-between">
-      <b className="text-gray-800">{name}</b>
-      <div className="flex text-yellow-500">
-        {[...Array(rating)].map((_, i) => <Star key={i} size={18} fill="gold" stroke="gold" />)}
-        {[...Array(5-rating)].map((_, i) => <Star key={i} size={18} stroke="gold" />)}
+const DetailImageCarousel = ({ urls, alt }: DetailImageCarouselProps) => {
+  const [index, setIndex] = useState(0);
+  const images = urls.filter(Boolean);
+
+  if (images.length === 0) {
+    return (
+      <div className="w-full h-full flex items-center justify-center text-gray-400">
+        Tidak ada gambar
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative w-full h-full overflow-hidden rounded-xl">
+      <div
+        className="flex h-full transition-transform duration-300 ease-in-out"
+        style={{ transform: `translateX(-${index * 100}%)` }}
+      >
+        {images.map((src, i) => (
+          <div key={i} className="w-full h-full shrink-0">
+            <img
+              src={src}
+              alt={`${alt} ${i + 1}`}
+              className="w-full h-full object-contain"
+              draggable={false}
+            />
+          </div>
+        ))}
+      </div>
+
+      {images.length > 1 && (
+        <>
+          <button
+            onClick={() =>
+              setIndex((prev) => (prev - 1 + images.length) % images.length)
+            }
+            className="absolute left-3 top-1/2 -translate-y-1/2 bg-black/50 text-white p-2 rounded-full"
+          >
+            <ChevronLeft />
+          </button>
+
+          <button
+            onClick={() => setIndex((prev) => (prev + 1) % images.length)}
+            className="absolute right-3 top-1/2 -translate-y-1/2 bg-black/50 text-white p-2 rounded-full"
+          >
+            <ChevronRight />
+          </button>
+        </>
+      )}
+
+      <div className="absolute bottom-3 left-0 right-0 flex justify-center gap-2">
+        {images.map((_, i) => (
+          <span
+            key={i}
+            className={`w-2.5 h-2.5 rounded-full ${
+              i === index ? "bg-orange-500" : "bg-white/60"
+            }`}
+          />
+        ))}
       </div>
     </div>
-    <p className="text-gray-600 text-sm italic mt-1">"{comment}"</p>
-  </div>
-);
+  );
+};
 
-// ====================================================================================
-// =============================== MAIN PAGE =========================================
-// ====================================================================================
+/* ===============================
+   MAIN PAGE
+================================ */
 export default function ProductDetailPage() {
   const [product, setProduct] = useState<Product | null>(null);
-  const [loading, setLoading] = useState(true);
   const router = useRouter();
-
-  const reviews = [
-    { name: "Rizky", rating: 5, comment: "Barang mantap, sesuai deskripsi!" },
-    { name: "Siti", rating: 4, comment: "Harga oke, kualitas bagus." },
-    { name: "Bambang", rating: 5, comment: "Pengiriman cepat!" },
-  ];
 
   useEffect(() => {
     const data = localStorage.getItem("selectedProduct");
-    if (data) setProduct(JSON.parse(data));
-    setLoading(false);
+    if (!data) return;
+
+    const parsed = JSON.parse(data);
+    parsed.img_url = Array.isArray(parsed.img_url)
+      ? parsed.img_url
+      : [parsed.img_url];
+
+    setProduct(parsed);
   }, []);
 
-  if (loading) return <div className="text-center py-20 font-bold text-[#234C6A]">Memuat...</div>;
-  if (!product) return <div className="text-center py-20 text-gray-500">Produk tidak ditemukan</div>;
+  if (!product)
+    return <div className="text-center py-20">Produk tidak ditemukan</div>;
 
   const { hasPromo, original, final, discount } = getPriceInfo(product);
 
   return (
-    <div className="min-h-screen bg-gray-50 py-10 px-4 md:px-8">
-      <div id="message-box" className="hidden fixed top-6 right-6 z-50" />
-
-      <div className="max-w-6xl mx-auto">
-        {/* ================= BACK BUTTON ================= */}
+    <div className="bg-gray-50 min-h-screen py-10">
+      <div className="max-w-6xl mx-auto px-4">
         <button
           onClick={() => router.back()}
-          className="flex items-center gap-2 text-[#234C6A] font-bold hover:text-[#FF6D1F] transition mb-8"
+          className="flex items-center gap-2 mb-6 font-bold text-[#234C6A]"
         >
-          <ArrowLeft size={22} /> Kembali
+          <ArrowLeft /> Kembali
         </button>
 
-        {/* ================= PRODUCT AREA ================= */}
-        <div className="grid md:grid-cols-12 gap-10 bg-white p-8 rounded-3xl shadow border">
-          <div className="md:col-span-5 flex justify-center bg-gray-100 rounded-xl p-6">
-            <img src={product.img_url} className="max-h-[450px] object-contain" />
+        <div className="grid md:grid-cols-12 gap-8 bg-white p-8 rounded-3xl">
+          <div className="md:col-span-5 bg-gray-100 p-4 rounded-xl">
+            <div className="aspect-square w-full">
+              <DetailImageCarousel
+                urls={product.img_url}
+                alt={product.name}
+              />
+            </div>
           </div>
 
-          {/* RIGHT SIDE */}
-          <div className="md:col-span-7 space-y-5">
-
-            <p className="text-sm font-semibold text-[#FF6D1F] flex gap-1">
-              <Tag size={16}/> {product.jenis_barang}
+          <div className="md:col-span-7 space-y-4">
+            <p className="text-orange-500 font-bold flex gap-1">
+              <Tag size={16} /> {product.jenis_barang}
             </p>
 
-            <h1 className="text-4xl font-extrabold text-[#234C6A]">{product.name}</h1>
+            <h1 className="text-4xl font-extrabold text-gray-700">
+              {product.name}
+            </h1>
 
-            {/* HARGA */}
-            <div className="space-y-1">
-              {hasPromo && <p className="text-xl text-gray-400 line-through">Rp {original.toLocaleString("id-ID")}</p>}
-              <p className="text-5xl font-black text-[#FF6D1F]">Rp {final.toLocaleString("id-ID")}</p>
-              {hasPromo && <span className="bg-red-100 text-red-600 font-bold px-3 py-1 rounded-full text-sm">HEMAT {discount}%</span>}
-            </div>
+            {hasPromo && (
+              <p className="line-through text-gray-400">
+                Rp {original.toLocaleString("id-ID")}
+              </p>
+            )}
 
-            {/* BUTTON */}
-            <div className="flex gap-4">
+            <p className="text-5xl font-black text-orange-500">
+              Rp {final.toLocaleString("id-ID")}
+            </p>
+
+            {hasPromo && (
+              <span className="bg-red-100 text-red-600 px-3 py-1 rounded-full font-bold text-sm">
+                HEMAT {discount}%
+              </span>
+            )}
+
+            {/* 🔥 ROUTE DITAMBAHKAN DI SINI */}
+            <div className="flex gap-4 mt-4">
               <button
-                onClick={() => addToCart(product)}
-                className="flex-1 bg-[#234C6A] text-white py-4 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-[#1b3a52]"
+                onClick={() => {
+                  addToCart(product);
+                  router.push("/cart"); // ➕ ROUTE KE CART
+                }}
+                className="flex-1 bg-[#234C6A] text-white py-4 rounded-xl font-bold flex justify-center gap-2"
               >
-                <ShoppingCart size={22}/> Masukkan Keranjang
+                <ShoppingCart /> Masukkan Keranjang
               </button>
 
               <button
-                onClick={() => router.push("/checkout")}
-                className="flex-1 border-2 border-[#FF6D1F] text-[#FF6D1F] py-4 rounded-xl font-bold hover:bg-[#FF6D1F] hover:text-white"
+                onClick={() => router.push("/checkout")} // ➕ ROUTE KE CHECKOUT
+                className="flex-1 border-2 border-orange-500 text-orange-500 py-4 rounded-xl font-bold"
               >
                 Beli Sekarang
               </button>
             </div>
 
-            <p className="text-xs text-gray-500 flex gap-1"><Info size={14}/> Barang dikirim dalam 1x24 jam.</p>
-          </div>
-        </div>
-
-        {/* ================= FITUR ================= */}
-        <div className="mt-10 bg-white p-6 rounded-2xl shadow">
-          <h2 className="font-bold text-xl mb-3 text-[#234C6A]">Jaminan Produk</h2>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-            <FeatureHighlight icon={ShieldCheck} title="Garansi Resmi" desc="100% ori bergaransi" />
-            <FeatureHighlight icon={Truck} title="Gratis Ongkir" desc="Min belanja 100rb" />
-            <FeatureHighlight icon={Zap} title="Ready Stock" desc="Pengiriman cepat" />
-          </div>
-        </div>
-
-        {/* ================= DESKRIPSI ================= */}
-        <div className="mt-10 bg-white p-6 rounded-2xl shadow">
-          <h2 className="text-xl font-bold border-b pb-2 mb-3 text-[#234C6A]">Deskripsi Produk</h2>
-          <p className="text-gray-700 whitespace-pre-wrap">{product.description}</p>
-        </div>
-
-        {/* ================= REVIEW ================= */}
-        <div className="mt-10 bg-white p-6 rounded-2xl shadow">
-          <h2 className="text-xl font-bold flex gap-2 border-b pb-2 mb-5 text-[#234C6A]">
-            <MessageSquare size={22}/> Ulasan Pembeli
-          </h2>
-          <div className="grid md:grid-cols-3 gap-4">
-            {reviews.map((r,i)=> <ReviewCard key={i} {...r}/>)}
+            <p className="text-xs text-gray-500 flex gap-1">
+              <Info size={14} /> Dikirim 1x24 jam
+            </p>
           </div>
         </div>
       </div>

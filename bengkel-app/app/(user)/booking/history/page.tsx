@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { CheckCircle, Clock, Wrench, Calendar, Tag, Car, Phone, BookOpen, User } from "lucide-react";
+import { alertSuccess, alertError, alertLoginRequired } from "@/components/Alert";
 
 // === Interface ===
 interface Booking {
@@ -35,7 +36,7 @@ export default function RiwayatBooking() {
   // ================= GET PROFILE USER =================
   async function loadUser() {
     const token = getCookie("token");
-    if (!token) return alert("Silahkan login terlebih dahulu!");
+    if (!token) return alertError("Silahkan login terlebih dahulu!");
 
     const res = await fetch(`${apiUrl}/auth/profile`, {
       headers: { Authorization: `Bearer ${token}` }
@@ -144,7 +145,7 @@ export default function RiwayatBooking() {
             </div>
 
             {/* Detail */}
-            <div className="grid sm:grid-cols-2 gap-6">
+            <div className="grid sm:grid-cols-2 gap-6 text-gray-700 ">
               <Detail icon={<Car/>} title="Jenis Kendaraan" value={item.jenis_kendaraan}/>
               <Detail icon={<Tag/>} title="Jenis Servis" value={item.jenis_service}/>
               <Detail icon={<Calendar/>} title="Tanggal" value={formatDate(item.booking_date)}/>
